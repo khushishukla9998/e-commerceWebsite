@@ -39,10 +39,11 @@ module.exports = [
     controller: controller.deletuser,
     validation: authValidator.registervalidator, //authValidator.validate,
   },
-  {
+ {
     path: "/addImage",
     method: "post",
-    controller: controller.multerd,
-    //validation: authValidator.registervalidator, //authValidator.validate,
+    validation: upload.array("files", 5), // multer as middleware
+    controller: controller.multered,
+    isPublic: true,
   },
 ];

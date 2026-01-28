@@ -50,20 +50,43 @@ function storeRefreshTokenInCookie(res, name, tokenValue) {
 
 
 
-function multerd() {
-  const uploadDir = path.join(__dirname, "../../uploads");
+// const multer = require("multer");
+// const path = require("path");
 
-  const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-      cb(null, Date.now() + "-" + file.originalname);
-    },
-  });
+// const storage = multer.diskStorage({
+//   destination: function (req, file, cb) {
+//     //cb(null, "src/uploads"); // upload folder
+    
+//   },
+//   filename: function (req, file, cb) {
+//     const uniqueName = Date.now() + "-" + Math.round(Math.random() * 1e9);
+//     cb(null, uniqueName + path.extname(file.originalname));
+//   },
+// });
 
-  return multer({ storage });
-}
+// const upload = multer({ storage });
+
+// module.exports = {
+//   upload,
+// };
+
+
+
+const uploadPath = path.join(__dirname, "../../uploads");
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadPath); // ✅ correct directory
+  },
+  filename: function (req, file, cb) {
+    const uniqueName = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueName + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({ storage });
+
+
 
 
 
@@ -100,8 +123,16 @@ return prefix;
 };
 
 
-const upload = multerd(); 
 
 
 
-   module.exports ={sendSuccessResponse,sendErrorResponse,storeAcessTokenInCookie,storeRefreshTokenInCookie,upload,routeArray}
+
+  
+module.exports = {
+  upload,
+  routeArray,
+  sendSuccessResponse,
+  sendErrorResponse,
+  storeAcessTokenInCookie,
+  storeRefreshTokenInCookie,
+};

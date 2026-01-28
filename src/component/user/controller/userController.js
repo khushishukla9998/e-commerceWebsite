@@ -5,9 +5,7 @@ const token = require("../../../middleware/index");
 const ENUM = require("../../utils/enum");
 const STRINGS = require("../../utils/appString");
 const utils = require("../../utils/commonUtils");
-const multer = require("multer");
-const path = require("path");
-const fs =require("fs");
+const { upload } = require("../../utils/commonUtils");
 
 
 
@@ -97,17 +95,17 @@ const login = async function (req, res) {
     });
 
     // if user not active or not register
-    if (!user) {
-      return utils.sendErrorResponse({ message: STRINGS.USER_NOT_FOUND });
-    }
+   if (!user) {
+  return utils.sendErrorResponse(res, STRINGS.USER_NOT_FOUND);
+}
 
     // copare the password which is enter by the user is correct with privious password and not
     const match = await bcrypt.compare(password, user.password);
 
     // if password is not match give the response and reject the request
-    if (!match) {
-      return utils.sendErrorResponse({ message: STRINGS.WRONG_PASSWORD });
-    }
+   if (!match) {
+  return utils.sendErrorResponse(res, STRINGS.WRONG_PASSWORD);
+}
 
       // generate the token
     const accessToken = token.generateAccessToken({id:user._id});
@@ -198,23 +196,45 @@ async function logout(req, res) {
 
 //for image upload
 
-function multerd() {
-  const uploadDir = path.join(__dirname, "../../uploads");
 
-  const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-      cb(null, Date.now() + "-" + file.originalname);
-    },
-  });
 
-  return multer({ storage });
-}
+// ✅ multiple file upload api
 
 
 
+// ✅ multiple file upload controller
+const multered = async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No files uploaded",
+      });
+    }
+
+    const files = req.files.map((file) => ({
+      filename: file.filename,
+      path: file.path,
+      originalname: file.originalname,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Files uploaded successfully",
+      data: files,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 
 
-module.exports = { register, login, getprofile, deletuser, logout ,multerd};
+
+
+
+
+
+module.exports = { register, login, getprofile, deletuser, logout ,multered};
