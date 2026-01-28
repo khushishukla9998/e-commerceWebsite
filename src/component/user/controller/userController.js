@@ -1,23 +1,22 @@
-
-const User = require("../model/userModel")
+const User = require("../model/userModel");
 const bcrypt = require("bcryptjs");
 const token = require("../../../middleware/index");
 const ENUM = require("../../utils/enum");
 const STRINGS = require("../../utils/appString");
 const utils = require("../../utils/commonUtils");
-const { upload } = require("../../utils/commonUtils");
-
-
-
+//const {upload} = require("../../utils/commonUtils")
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 
 //====================REGISTER=======================================================\\
 
 const register = async function (req, res) {
   try {
-    const { name, email, password } = req.body;
-    console.log(req.body);
+    console.log("request", req);
 
-    const profileImage = req.file ? req.file.path : null;
+    const { name, email, password, profileImage } = req.body;
+    console.log(req.body);
 
     // user exist or not
     const userExist = await User.findOne({
@@ -26,12 +25,7 @@ const register = async function (req, res) {
     });
 
     if (userExist) {
-      return utils.sendErrorResponse(
-        res,
-        "user already exist",
-        null,
-        409 // conflict
-      );
+      return utils.sendErrorResponse(req, res, STRINGS.USER_EXIST, null, 409);
     }
 
     // hash password
@@ -43,7 +37,6 @@ const register = async function (req, res) {
       email,
       password: hashpass,
       profileImage,
-      // status: ENUM.USER_STATUS.ACTIVE
     });
 
     await user.save();
@@ -57,7 +50,7 @@ const register = async function (req, res) {
     utils.storeRefreshTokenInCookie(res, "refreshToken", refreshToken);
 
     // send success response
-    return utils.sendSuccessResponse(res, "user registered", {
+    return utils.sendSuccessResponse(req, res, STRINGS.REGISTRATION_SUCCESS, {
       user: {
         id: user._id,
         name: user.name,
@@ -69,17 +62,16 @@ const register = async function (req, res) {
       refreshToken,
     });
   } catch (err) {
-    console.log("registration error", err);
+    console.log(STRINGS.REGISTRATION_ERROR, err);
     return utils.sendErrorResponse(
+      req,
       res,
-      "registration failed",
+      STRINGS.REGISTRATION_FAILED,
       { error: err.message },
-      500
+      500,
     );
   }
 };
-
-
 
 //========================LOGIN=============================================================================//
 
@@ -91,73 +83,60 @@ const login = async function (req, res) {
     // check the user is active
     const user = await User.findOne({
       email,
-      isDeleted:ENUM.DELETE_STATUS.NOT_DELETE
+      isDeleted: ENUM.DELETE_STATUS.NOT_DELETE,
     });
 
     // if user not active or not register
-   if (!user) {
-  return utils.sendErrorResponse(res, STRINGS.USER_NOT_FOUND);
-}
+    if (!user) {
+      return utils.sendErrorResponse(res, STRINGS.USER_NOT_FOUND);
+    }
 
-    // copare the password which is enter by the user is correct with privious password and not
+    // compare the password which is enter by the user is correct with privious password and not
     const match = await bcrypt.compare(password, user.password);
 
     // if password is not match give the response and reject the request
-   if (!match) {
-  return utils.sendErrorResponse(res, STRINGS.WRONG_PASSWORD);
-}
+    if (!match) {
+      return utils.sendErrorResponse(res, STRINGS.WRONG_PASSWORD);
+    }
 
-      // generate the token
-    const accessToken = token.generateAccessToken({id:user._id});
-    const refreshToken = token.generateRefreshToken({id:user._id});
+    // generate the token
+    const accessToken = token.generateAccessToken({ id: user._id });
+    const refreshToken = token.generateRefreshToken({ id: user._id });
 
-  
-  
+    // ============ store ACCESS token in cookie================
+    utils.storeAcessTokenInCookie(res, "accessToken", accessToken);
 
-    // if (redisClient) {
-    //   await redisClient.set(user._id.toString(), refreshToken, {
-    //     EX: 7 * 24 * 60 * 60, // 7 days expiry
-    //   });
-    // }
+    // ============ store refresh token in cookie================
+    utils.storeRefreshTokenInCookie(res, "refreshToken", refreshToken);
 
-    
- // ============ store ACCESS token in cookie================
-    utils.storeAcessTokenInCookie( res,"accessToken", accessToken) 
-
-// ============ store refresh token in cookie================
-    utils.storeRefreshTokenInCookie(res,"refreshToken",refreshToken)
-
-// ==============send the response===========================
-    return utils.sendSuccessResponse(res,STRINGS.LOGIN_SUCCESS,
-{
+    // ==============send the response===========================
+    return utils.sendSuccessResponse(res, STRINGS.LOGIN_SUCCESS, {
       user,
       accessToken,
-      refreshToken
-}
-    );
-
- } catch (err) {
+      refreshToken,
+    });
+  } catch (err) {
     return utils.sendErrorResponse(
       res,
-      'login is failed',
+      STRINGS.LOGIN_FAILED,
       { error: err.message },
-      500
+      500,
     );
   }
-}
+};
 
 // ===================================get profile from token =========================================
 
 async function getprofile(req, res) {
   try {
     const userId = req.headers.id;
-    console.log("uddd" )
+    console.log("uddd");
     const user = await User.findById(userId).select("-password");
     if (!user) {
-      return res.json({ message: "user not found" });
+      return res.json({ message: STRINGS.USER_NOT_FOUND });
     }
     res.json({
-      message: "user profile",
+      message: STRINGS.USER_PROFILE,
       user: {
         id: user._id,
         name: user.name,
@@ -166,7 +145,7 @@ async function getprofile(req, res) {
       },
     });
   } catch (err) {
-    res.json({ message: "profile error", err: err.message });
+    res.json({ message: STRINGS.PROFILE_ERROR, err: err.message });
   }
 }
 
@@ -178,9 +157,9 @@ async function deletuser(req, res) {
       status: ENUM.USER_STATUS.INACTIVE,
     });
 
-    res.json({ message: "user soft deleted" });
+    res.json({ message:STRINGS.DELETE_SUCCSESS});
   } catch (err) {
-    res.json({ message: "delete error", err: err.message });
+    res.json({ message: STRINGS.DELETE_ERROR, err: err.message });
   }
 }
 
@@ -188,40 +167,97 @@ async function deletuser(req, res) {
 async function logout(req, res) {
   try {
     res.clearCookie("refreshToken");
-    res.json({ message: "logout successful" });
+    res.json({ message: STRINGS.LOGOUT_SUCCESS });
   } catch (err) {
-    res.json({ message: "logout error", err: err.message });
+    res.json({ message: STRINGS.LOGOUT_ERROR, err: err.message });
   }
 }
 
-//for image upload
+//==================== multiple file upload controller==============================
 
 
 
-// ✅ multiple file upload api
-
-
-
-// ✅ multiple file upload controller
-const multered = async (req, res) => {
+const multered = (req, res, next) => {
   try {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No files uploaded",
+    const uploadPath = path.join(__dirname, "../../uploads/images");
+
+    const storage = multer.diskStorage({
+      destination: function (req, file, cb) {
+        if (!fs.existsSync(uploadPath)) {
+          fs.mkdirSync(uploadPath, { recursive: true });
+        }
+        cb(null, uploadPath);
+      },
+      filename: function (req, file, cb) {
+        const uniqueName =
+          Date.now() + "-" + Math.round(Math.random() * 1e9);
+        cb(null, uniqueName + path.extname(file.originalname));
+      },
+    });
+
+    const upload = multer({
+      storage,
+      // limites of file capacity
+      limits: {
+        fileSize: 1 * 1024 * 1024, // 1MB per file
+        files: 10,                 // up to 10 files
+      },
+    }).array("profileImage", 10);
+
+    upload(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        return res.status(400).json({
+          success: false,
+          message: STRINGS.UPLOAD_MULTER_ERROR,
+          error: err.message,
+        });
+      } else if (err) {
+        return res.status(400).json({
+          success: false,
+          message:  STRINGS.UPLOAD_ERROR,
+          error: err.message,
+        });
+      }
+
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: STRINGS.UOLOAD_MESSAGE,
+        });
+      }
+
+      // only thise type of fle or image can be uploaded
+      const allowedTypes = ["image/jpeg", "image/png", "application/pdf"];
+
+      for (const file of req.files) {
+        if (!allowedTypes.includes(file.mimetype)) {
+          fs.unlinkSync(file.path);
+          return res.status(400).json({
+            success: false,
+            error:STRINGS.UPLOAD_VALIDATION,
+          });
+        }
+     // check the fileSize
+        if (file.size > 5 * 1024 * 1024) {
+          fs.unlinkSync(file.path);
+          return res.status(400).json({
+            success: false,
+            error: STRINGS.UPLOAD_LIMIT,
+          });
+        }
+      }
+
+      const files = req.files.map((file) => ({
+        filename: file.filename,
+        path: file.path,
+        originalname: file.originalname,
+      }));
+
+      return res.status(200).json({
+        success: true,
+        message:STRINGS.UPLOAD_SUCCESS,
+        data: files,
       });
-    }
-
-    const files = req.files.map((file) => ({
-      filename: file.filename,
-      path: file.path,
-      originalname: file.originalname,
-    }));
-
-    return res.status(200).json({
-      success: true,
-      message: "Files uploaded successfully",
-      data: files,
     });
   } catch (error) {
     return res.status(500).json({
@@ -230,11 +266,4 @@ const multered = async (req, res) => {
     });
   }
 };
-
-
-
-
-
-
-
-module.exports = { register, login, getprofile, deletuser, logout ,multered};
+module.exports = { register, login, getprofile, deletuser, logout, multered };

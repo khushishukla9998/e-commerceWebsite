@@ -21,6 +21,7 @@
     "mongoose": "^9.1.5",
     "multer": "^2.0.2",
     "node": "^25.4.0",
-    "nodemon": "^3.1.11"
+    "nodemon": "^3.1.11",
+    "validatorjs": "^3.22.1"
   }
 }

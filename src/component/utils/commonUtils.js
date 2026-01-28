@@ -1,11 +1,10 @@
-
 const multer = require("multer");
 const path = require("path");
-const fs =require("fs");
-const middelwareIndex  =require("../../middleware/index")
+const fs = require("fs");
+const middelwareIndex = require("../../middleware/index");
 
 //===================successResponse===========================
-function sendSuccessResponse(res, message, data = null, status = 200) {
+function sendSuccessResponse(req, res, message, data = null, status = 200) {
   return res.status(status).json({
     success: true,
     message,
@@ -15,7 +14,7 @@ function sendSuccessResponse(res, message, data = null, status = 200) {
 
 //=====================errorResopnse=====================
 
-function sendErrorResponse(res, message, data = null, status = 422) {
+function sendErrorResponse(req, res, message, data = null, status = 422) {
   return res.status(status).json({
     success: false,
     message,
@@ -23,14 +22,11 @@ function sendErrorResponse(res, message, data = null, status = 422) {
   });
 }
 
-
-
 // Set access token cookie
 function storeAcessTokenInCookie(res, name, tokenValue) {
   res.cookie(name, tokenValue, {
     httpOnly: true,
     sameSite: "lax",
-  
   });
 }
 
@@ -39,24 +35,16 @@ function storeRefreshTokenInCookie(res, name, tokenValue) {
   res.cookie(name, tokenValue, {
     httpOnly: true,
     sameSite: "lax",
-   
   });
 }
 
-
-
-
 //=============multer======================================
 
-
-
-// const multer = require("multer");
-// const path = require("path");
+// const uploadPath = path.join(__dirname, "../../uploads");
 
 // const storage = multer.diskStorage({
 //   destination: function (req, file, cb) {
-//     //cb(null, "src/uploads"); // upload folder
-    
+//     cb(null, uploadPath);
 //   },
 //   filename: function (req, file, cb) {
 //     const uniqueName = Date.now() + "-" + Math.round(Math.random() * 1e9);
@@ -66,70 +54,39 @@ function storeRefreshTokenInCookie(res, name, tokenValue) {
 
 // const upload = multer({ storage });
 
-// module.exports = {
-//   upload,
-// };
-
-
-
-const uploadPath = path.join(__dirname, "../../uploads");
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadPath); // ✅ correct directory
-  },
-  filename: function (req, file, cb) {
-    const uniqueName = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueName + path.extname(file.originalname));
-  },
-});
-
-const upload = multer({ storage });
-
-
-
-
-
 //========================route handler=====================================
 const routeArray = (array_, prefix) => {
-    
-array_.forEach((route) => {
-    const method = route.method ;
+  array_.forEach((route) => {
+    const method = route.method;
     const path = route.path;
     const controller = route.controller;
     const validation = route.validation;
 
     let middlewares = [];
-  
+
     const isPublic = route.isPublic === undefined ? false : route.isPublic;
     // Middleware to log the request IP and userId
 
     if (!isPublic) {
-        middlewares.push(middelwareIndex.verifyAcessToken);
+      middlewares.push(middelwareIndex.verifyAcessToken);
     }
 
     if (validation) {
-        if (Array.isArray(validation)) {
-            middlewares.push(...validation);
-        } else {
-            middlewares.push(validation);
-        }
+      if (Array.isArray(validation)) {
+        middlewares.push(...validation);
+      } else {
+        middlewares.push(validation);
+      }
     }
     middlewares.push(controller);
     prefix[method](path, ...middlewares);
-});
+  });
 
-return prefix;
+  return prefix;
 };
 
-
-
-
-
-
-  
 module.exports = {
-  upload,
+
   routeArray,
   sendSuccessResponse,
   sendErrorResponse,

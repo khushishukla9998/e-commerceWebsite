@@ -7,8 +7,8 @@ module.exports = {
 
     // delete status
     DELETE_STATUS:{
-        DELETE:3,
-        NOT_DELETE:4
+        DELETE:true,
+        NOT_DELETE:false
     },
 
 };
