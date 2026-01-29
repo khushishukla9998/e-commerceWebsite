@@ -1,4 +1,5 @@
 const  mongoose = require("mongoose");
+const Address  =require("./addressModel")
 
 const ENUM = require("../../utils/enum")
 const userSchema = mongoose.Schema({
@@ -27,7 +28,15 @@ const userSchema = mongoose.Schema({
     isDeleted:{
         type:Boolean,
          default:ENUM.DELETE_STATUS.NOT_DELETE
-    }
+    },
+    
+
   });
+
 const user = mongoose.model("user",userSchema);
 module.exports = user;
+
+
+
+
+    

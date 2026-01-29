@@ -20,7 +20,11 @@ module.exports={
     UOLOAD_MESSAGE:" no file uploaded",
     UPLOAD_VALIDATION:"Only JPEG, PNG, and PDF files are allowed",
     UPLOAD_LIMIT:"File size exceeds 5MB limit",
-    UPLOAD_SUCCESS: "Files uploaded successfully"
+    UPLOAD_SUCCESS: "Files uploaded successfully",
+    ADDRESS_ADDED:"Address added successfully",
+    ADDRESS_ERROR:"Address not added",
+    
+    
 
 
 };

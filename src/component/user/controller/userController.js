@@ -1,4 +1,5 @@
 const User = require("../model/userModel");
+const Address = require("../model/addressModel");
 const bcrypt = require("bcryptjs");
 const token = require("../../../middleware/index");
 const ENUM = require("../../utils/enum");
@@ -15,7 +16,7 @@ const register = async function (req, res) {
   try {
     console.log("request", req);
 
-    const { name, email, password, profileImage } = req.body;
+    const { name, email, password, profileImage} = req.body;
     console.log(req.body);
 
     // user exist or not
@@ -110,13 +111,14 @@ const login = async function (req, res) {
     utils.storeRefreshTokenInCookie(res, "refreshToken", refreshToken);
 
     // ==============send the response===========================
-    return utils.sendSuccessResponse(res, STRINGS.LOGIN_SUCCESS, {
+    return utils.sendSuccessResponse(req,res, STRINGS.LOGIN_SUCCESS, {
       user,
       accessToken,
       refreshToken,
     });
   } catch (err) {
     return utils.sendErrorResponse(
+      req,
       res,
       STRINGS.LOGIN_FAILED,
       { error: err.message },
@@ -266,4 +268,62 @@ const multered = (req, res, next) => {
     });
   }
 };
-module.exports = { register, login, getprofile, deletuser, logout, multered };
+
+
+/// add adresss
+ const addAdress = async function (req, res) {
+  try {
+    const {street, city, state, zipCode, userId} = req.body;
+    console.log(req.body)
+    // 1. Validate Input
+    // if (!userId || !street || !city || !state || !zipCode) {
+    //   return utils.sendErrorResponse(
+    //     req, res, STRINGS.ADDRESS_ERROR,
+    //     { error: "All address fields (street, city, state, zipCode, userId) are required" },
+    //     400
+    //   );
+    // }
+
+    // 2. Check if User exists
+    const userExists = await User.findById(userId);
+    if (!userExists) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // 3.  Check for duplicate address for this user
+    const duplicateAddress = await Address.findOne({ userId, street, city, state, zipCode });
+    if (duplicateAddress) {
+        return utils.sendErrorResponse(
+            req, res, STRINGS.ADDRESS_ERROR,
+            { error: "This address already exists for this user" },
+            409
+        );
+    }
+
+    // 4. Create and Save Address
+    const address = new Address({
+      street,
+      city,
+      state,
+      zipCode,
+      userId,
+      // If this is the first address, set it as primary
+      isPrimary: req.body.isPrimary || false 
+    });
+
+    await address.save();
+
+
+    return utils.sendSuccessResponse(req, res, STRINGS.ADDRESS_ADDED, {
+      address: address // Return the full created object
+    });
+
+  } catch (err) {
+    return utils.sendErrorResponse(
+      req, res, STRINGS.ADDRESS_ERROR,
+      { error: err.message },
+      500
+    );
+  }
+};
+module.exports = { register, login, getprofile, deletuser, logout, multered,addAdress};

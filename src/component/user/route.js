@@ -1,7 +1,9 @@
 const express = require("express");
 const routes = express.Router();
 const controller = require("./controller/userController");
+const addcontroller = require("./controller/addressController")
 const authValidator = require("./validation");
+// const addController = require("./controller/addressController");
 
 module.exports = [
   {
@@ -41,4 +43,18 @@ module.exports = [
     controller: controller.multered,
     isPublic: true,
   },
+  {
+    path: "/addAdrress",
+    method: "post",
+    controller: addcontroller.addAdress,
+    // validation: [...authValidator.registerValidator(), authValidator.validate],
+  
+  },
+    {
+    path: "/getaddress",
+    method: "get",
+    controller: addcontroller.getaddress,
+    // validation: [...authValidator.registerValidator(), authValidator.validate],
+
+},
 ];
