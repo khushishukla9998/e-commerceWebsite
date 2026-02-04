@@ -1,56 +1,81 @@
+
 const Address = require("../model/addressModel");
-const utils = require("../../utils/commonUtils");
-const STRINGS = require("../../utils/appString");
+const commonUtils = require("../../utils/commonUtils");
+const appStrings = require("../../utils/appString");
 const { header } = require("express-validator");
 const user = require("../model/userModel");
 const mongoose = require("mongoose");
 
 //add adress
 
-exports.addAdress = async function (req, res) {
+exports.addAddress = async function (req, res) {
   try {
-    const { street, city, state, zipCode, userId } = req.body;
-    console.log(req.body);
+    const { street, city, state, zipCode } = req.body;
+    const userId = req.headers.id;
+    console.log("USER ID =>", userId);
 
-    console.log(req.headers.id);
 
-    // 4. Create and Save Address
+    // Validate User ID
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        appStrings.ADDRESS_ERROR,
+        appStrings.INVALID_HEADERS,
+        400
+      );
+    }
+
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    console.log("USER ID =>", userObjectId.toString());
+
+    //  count addresses to determine primary
+    const totalAddresses = await Address.countDocuments({ userId: userObjectId });
+    console.log(`[DEBUG] userId: ${userObjectId}, totalAddresses found: ${totalAddresses}`);
+
+    //  create address
+    const isPrimaryAddress = totalAddresses === 0;
+    console.log(`[DEBUG] Setting isPrimary to: ${isPrimaryAddress}`);
+
     const address = new Address({
       street,
       city,
       state,
       zipCode,
-      userId:req.headers.id,
-      // If this is the first address, set it as primary
-      isPrimary: false,
+      userId: userObjectId,
+      isPrimary: isPrimaryAddress, // First address becomes primary
     });
 
     await address.save();
 
-    return utils.sendSuccessResponse(req, res, STRINGS.ADDRESS_ADDED, {
-      address: address, // Return the full created object
-    });
+    return commonUtils.sendSuccessResponse(req, res, appStrings.ADDRESS_ADDED, address);
   } catch (err) {
-    return utils.sendErrorResponse(
+    console.error("ERROR =>", err);
+
+    return commonUtils.sendErrorResponse(
       req,
       res,
-      STRINGS.ADDRESS_ERROR,
-      { error: err.message },
-      500,
+      appStrings.ADDRESS_ERROR,
+      err.message,
+      500
     );
   }
 };
 
-exports.getaddress = async function (req, res) {
-  try {
+//==========================addressList============================
 
-      console.log("UserID from header:", req.headers.id);
+exports.getAddress = async function (req, res) {
+  try {
     const userId = req.headers.id;
 
-    if (!userId) {
-      return res
-        .status(400)
-        .json({ success: false, message: "ID header missing" });
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        appStrings.ADDRESS_ERROR,
+      appStrings.INVALID_ID,
+        400
+      );
     }
 
     const address = await Address.aggregate([
@@ -61,75 +86,89 @@ exports.getaddress = async function (req, res) {
       },
       {
         $lookup: {
-          from: "user",
+          from: "users", // Mongoose  "User" model to "users" collection
           localField: "userId",
           foreignField: "_id",
-          as: "user",
+          as: "userDetails",
         },
       },
-
       {
-        $unwind: "$user",
+        $unwind: {
+          path: "$userDetails",
+          preserveNullAndEmptyArrays: true // Keep address even if user not found (unlikely)
+        }
       },
       {
         $project: {
-          street: 1,
-          city: 1,
-          state: 1,
-          zipCode: 1,
-          userId: 1,
-        //   "user._id": 1,
-        //   "user.name": 1,
+          _id: "$_id",
+          street: "$street",
+          city: "$city",
+          state: "$state",
+          zipCode:"$zipCode",
+          isPrimary: "$isPrimary",
+          userId: "$userId",
+          "userName": "$userDetails.name",
+          "userEmail": "$userDetails.email"
         },
       },
     ]);
 
-    console.log(address);
-    res.status(200).json({
-      success: true,
-      data: address,
-    });
+    return commonUtils.sendSuccessResponse(req, res, "Address Fetched Successfully", address);
 
-  
   } catch (err) {
-    res.status(400).json({
-      success: false,
-      message: err.message,
-    });
+    console.error(err);
+    return commonUtils.sendErrorResponse(
+      req,
+      res,
+      appStrings.ADDRESS_ERROR,
+      err.message,
+      500
+    );
   }
 };
 
-// 1. Validate Input
-// if (!userId || !street || !city || !state || !zipCode) {
-//   return utils.sendErrorResponse(
-//     req, res, STRINGS.ADDRESS_ERROR,
-//     { error: "All address fields (street, city, state, zipCode, userId) are required" },
-//     400
-//   );
-// }
+//=========================update secondary address as primary address
+exports.setPrimaryAddress = async function (req, res) {
+  try {
+    const userId = req.headers.id;
+    const { addressId } = req.body;
 
-//  2. Check if User exists
-// const userExists = await user.findById(userId);
-// if (!userExists) {
-//   return res.status(404).json({ message: "User not found" });
-// }
+    if (!userId || !addressId) {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        appStrings.ADDRESS_ERROR,
+        appStrings.ID_REQUIRED,
+        400
+      );
+    }
 
-//  3.  Check for duplicate address for this user
-// const duplicateAddress = await Address.findOne({
-//   userId,
-//   street,
-//   city,
-//   state,
-//   zipCode,
-// });
-// if (!userId) {
-//   if (duplicateAddress) {
-//     return utils.sendErrorResponse(
-//       req,
-//       res,
-//       STRINGS.ADDRESS_ERROR,
-//       { error: "This address already exists for this user" },
-//       409,
-//     );
-//   }
-// }
+    // 1 Verify the address belongs to the user
+    const address = await Address.findOne({ _id: addressId, userId });
+    if (!address) {
+      return commonUtils.sendErrorResponse(req, res, appStrings.ADDRESS_ERROR, appStrings.ADSRESS_NOT_FOUND, 404);
+    }
+
+    //  Demote all addresses for this user to secondary
+    await Address.updateMany(
+      { userId: userId },
+      { $set: { isPrimary: false } }
+    );
+
+    //  Promote the selected address to primary
+    address.isPrimary = true;
+    await address.save();
+
+    return commonUtils.sendSuccessResponse(req, res, appStrings.PRIMERY_ADSRESS_UPDATED, address);
+
+  } catch (err) {
+    console.error(err);
+    return commonUtils.sendErrorResponse(
+      req,
+      res,
+      appStrings.ADDRESS_ERROR,
+      err.message,
+      500
+    );
+  }
+};

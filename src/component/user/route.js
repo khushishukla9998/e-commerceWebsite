@@ -1,16 +1,15 @@
 const express = require("express");
-const routes = express.Router();
 const controller = require("./controller/userController");
-const addcontroller = require("./controller/addressController")
+const addcontroller = require("./controller/addressController");
 const authValidator = require("./validation");
-// const addController = require("./controller/addressController");
+
+console.log("Loading User Routes...");
 
 module.exports = [
   {
     path: "/register",
     method: "post",
     controller: controller.register,
-    // validation: [...authValidator.registerValidator(), authValidator.validate],
     validation: authValidator.registerValidation,
     isPublic: true,
   },
@@ -18,24 +17,25 @@ module.exports = [
     path: "/login",
     method: "post",
     controller: controller.login,
-
-    // validation: [...authValidator.loginValidator(), authValidator.validate],
     isPublic: true,
   },
   {
     path: "/logout",
-    method: "post",
+    method: "delete",
     controller: controller.logout,
+   
   },
   {
     path: "/getprofile",
     method: "get",
     controller: controller.getprofile,
+  
   },
   {
     path: "/deleteUser",
     method: "delete",
     controller: controller.deletuser,
+   
   },
   {
     path: "/addImage",
@@ -44,17 +44,33 @@ module.exports = [
     isPublic: true,
   },
   {
-    path: "/addAdrress",
-    method: "post",
-    controller: addcontroller.addAdress,
-    // validation: [...authValidator.registerValidator(), authValidator.validate],
-  
-  },
-    {
-    path: "/getaddress",
+    path: "/getAddress",
     method: "get",
-    controller: addcontroller.getaddress,
-    // validation: [...authValidator.registerValidator(), authValidator.validate],
+    controller: addcontroller.getAddress,
+   
+   
+  },
+  {
+    path: "/setPrimaryAddress",
+    method: "put",
+    controller: addcontroller.setPrimaryAddress,
+   
+  },
+  {
+    path: "/addAddress",
+    method: "post",
+    controller: addcontroller.addAddress,
+   
+    
+  },
 
-},
+  {
+    path: "/refresh-token",
+    method: "post",
+    controller: controller.refreshAccessToken,
+    isPublic: true   //  access token nahi chahiye, sirf refresh token cookie
+
+  },
+
+
 ];

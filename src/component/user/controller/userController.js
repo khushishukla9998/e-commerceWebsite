@@ -1,14 +1,17 @@
 const User = require("../model/userModel");
+const mongoose = require("mongoose");
 const Address = require("../model/addressModel");
 const bcrypt = require("bcryptjs");
 const token = require("../../../middleware/index");
 const ENUM = require("../../utils/enum");
-const STRINGS = require("../../utils/appString");
-const utils = require("../../utils/commonUtils");
-//const {upload} = require("../../utils/commonUtils")
+const appStrings = require("../../utils/appString");
+const commonUtils = require("../../utils/commonUtils");
+
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const redisClient = require("../../utils/redisClient");
+
 
 //====================REGISTER=======================================================\\
 
@@ -16,7 +19,7 @@ const register = async function (req, res) {
   try {
     console.log("request", req);
 
-    const { name, email, password, profileImage} = req.body;
+    const { name, email, password, profileImage } = req.body;
     console.log(req.body);
 
     // user exist or not
@@ -26,7 +29,7 @@ const register = async function (req, res) {
     });
 
     if (userExist) {
-      return utils.sendErrorResponse(req, res, STRINGS.USER_EXIST, null, 409);
+      return commonUtils.sendErrorResponse(req, res, appStrings.USER_EXIST, null, 409);
     }
 
     // hash password
@@ -47,11 +50,21 @@ const register = async function (req, res) {
     const refreshToken = token.generateRefreshToken({ id: user._id });
 
     // store tokens in cookies
-    utils.storeAcessTokenInCookie(res, "accessToken", accessToken);
-    utils.storeRefreshTokenInCookie(res, "refreshToken", refreshToken);
+    commonUtils.storeAcessTokenInCookie(res, "accessToken", accessToken);
+    commonUtils.storeRefreshTokenInCookie(res, "refreshToken", refreshToken);
+
+     // Store Access & Refresh Tokens in Redis
+    // await redisClient.set(user._id.toString(),accessToken , { EX: 600 });
+    // await redisClient.set(user._id.toString(),refreshToken,  { EX: 604800 }); // 7 days
+  
+await redisClient.set(`user:access:${user._id}`, accessToken, { EX: 600 });
+
+
+await redisClient.set(`user:refresh:${user._id}`, refreshToken, { EX: 604800 });
+
 
     // send success response
-    return utils.sendSuccessResponse(req, res, STRINGS.REGISTRATION_SUCCESS, {
+    return commonUtils.sendSuccessResponse(req, res, appStrings.REGISTRATION_SUCCESS, {
       user: {
         id: user._id,
         name: user.name,
@@ -63,11 +76,11 @@ const register = async function (req, res) {
       refreshToken,
     });
   } catch (err) {
-    console.log(STRINGS.REGISTRATION_ERROR, err);
-    return utils.sendErrorResponse(
+    console.log(appStrings.REGISTRATION_ERROR, err);
+    return commonUtils.sendErrorResponse(
       req,
       res,
-      STRINGS.REGISTRATION_FAILED,
+      appStrings.REGISTRATION_FAILED,
       { error: err.message },
       500,
     );
@@ -89,7 +102,7 @@ const login = async function (req, res) {
 
     // if user not active or not register
     if (!user) {
-      return utils.sendErrorResponse(res, STRINGS.USER_NOT_FOUND);
+      return commonUtils.sendErrorResponse(res, appStrings.USER_NOT_FOUND);
     }
 
     // compare the password which is enter by the user is correct with privious password and not
@@ -97,7 +110,7 @@ const login = async function (req, res) {
 
     // if password is not match give the response and reject the request
     if (!match) {
-      return utils.sendErrorResponse(res, STRINGS.WRONG_PASSWORD);
+      return commonUtils.sendErrorResponse(res, appStrings.WRONG_PASSWORD);
     }
 
     // generate the token
@@ -105,22 +118,32 @@ const login = async function (req, res) {
     const refreshToken = token.generateRefreshToken({ id: user._id });
 
     // ============ store ACCESS token in cookie================
-    utils.storeAcessTokenInCookie(res, "accessToken", accessToken);
+    commonUtils.storeAcessTokenInCookie(res, "accessToken", accessToken);
 
     // ============ store refresh token in cookie================
-    utils.storeRefreshTokenInCookie(res, "refreshToken", refreshToken);
+    commonUtils.storeRefreshTokenInCookie(res, "refreshToken", refreshToken);
+
+    // Store Access & Refresh Tokens in Redis
+    // await redisClient.set(accessToken, user._id.toString(), { EX: 600 });
+    // await redisClient.set(refreshToken, user._id.toString(), { EX: 604800 });
+
+
+    await redisClient.set(`user:access:${user._id}`, accessToken, { EX: 600 });
+
+
+await redisClient.set(`user:refresh:${user._id}`, refreshToken, { EX: 604800 });
 
     // ==============send the response===========================
-    return utils.sendSuccessResponse(req,res, STRINGS.LOGIN_SUCCESS, {
+    return commonUtils.sendSuccessResponse(req, res, appStrings.LOGIN_SUCCESS, {
       user,
       accessToken,
       refreshToken,
     });
   } catch (err) {
-    return utils.sendErrorResponse(
+    return commonUtils.sendErrorResponse(
       req,
       res,
-      STRINGS.LOGIN_FAILED,
+      appStrings.LOGIN_FAILED,
       { error: err.message },
       500,
     );
@@ -132,22 +155,72 @@ const login = async function (req, res) {
 async function getprofile(req, res) {
   try {
     const userId = req.headers.id;
-    console.log("uddd");
-    const user = await User.findById(userId).select("-password");
-    if (!user) {
-      return res.json({ message: STRINGS.USER_NOT_FOUND });
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid User ID" });
     }
-    res.json({
-      message: STRINGS.USER_PROFILE,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        status: user.status,
+
+    const userProfile = await User.aggregate([
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(userId),
+          isDeleted: false // Assuming boolean based on model, or check ENUM if needed but model has default false
+        },
       },
+      {
+        $lookup: {
+          from: "addresses", // Collection name for Address model
+          let: { userId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$userId", "$$userId"] },
+                    { $eq: ["$isPrimary", true] }
+                  ]
+                }
+              }
+            },
+            { $project: { _id: 0, street: 1, city: 1, state: 1, zipCode: 1 } } // Only need specific fields
+          ],
+          as: "primaryAddress"
+        }
+      },
+      {
+        $unwind: {
+          path: "$primaryAddress",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          name: 1,
+          email: 1,
+          status: 1,
+          profileImage: 1,
+          primaryAddress: 1 // Will be an object or null
+        }
+      }
+    ]);
+
+    if (!userProfile || userProfile.length === 0) {
+      return res.json({ message: appStrings.USER_NOT_FOUND });
+    }
+
+    const userData = userProfile[0];
+    // Pass message if no primary address found
+    if (!userData.primaryAddress) {
+      userData.primaryAddress = appStrings.PRIMERY_ADSRESS_NOT_FOUND;
+    }
+
+    res.json({
+      message: appStrings.USER_PROFILE,
+      user: userData,
     });
   } catch (err) {
-    res.json({ message: STRINGS.PROFILE_ERROR, err: err.message });
+    res.json({ message: appStrings.PROFILE_ERROR, err: err.message });
   }
 }
 
@@ -159,21 +232,72 @@ async function deletuser(req, res) {
       status: ENUM.USER_STATUS.INACTIVE,
     });
 
-    res.json({ message:STRINGS.DELETE_SUCCSESS});
+    res.json({ message: appStrings.DELETE_SUCCSESS });
   } catch (err) {
-    res.json({ message: STRINGS.DELETE_ERROR, err: err.message });
+    res.json({ message: appStrings.DELETE_ERROR, err: err.message });
   }
 }
 
 //logout
-async function logout(req, res) {
+
+
+
+
+const logout = async (req, res) => {
   try {
+    // Get tokens from req or cookies
+    const accessToken = req.accessToken || req.cookies.accessToken;
+    const refreshToken = req.refreshToken || req.cookies.refreshToken;
+
+    let userId;
+
+    // Prefer refresh token (usually longer lived & required for full logout)
+    const tokenToDecode = refreshToken || accessToken;
+
+    if (tokenToDecode) {
+      try {
+        // Use the same verification you use in refreshAccessToken
+        const decoded = token.verifyAccessToken
+          ? token.verifyAccessToken(tokenToDecode) // if you have this
+          : token.verifyRefreshToken(tokenToDecode); // or use refresh verifier if only that exists
+
+        userId = decoded.id;
+      } catch (e) {
+        // If verification fails, we still want to clear cookies
+        console.warn("Failed to decode token in logout:", e.message);
+      }
+    }
+
+    // If we have userId, delete the correct Redis keys
+    if (userId) {
+      await redisClient.del(`user:access:${userId}`);
+      await redisClient.del(`user:refresh:${userId}`);
+    }
+
+
+    if (accessToken) {
+      await redisClient.del(accessToken);
+    }
+    if (refreshToken) {
+      await redisClient.del(refreshToken);
+    }
+
+    // Clear cookies
+    res.clearCookie("accessToken");
     res.clearCookie("refreshToken");
-    res.json({ message: STRINGS.LOGOUT_SUCCESS });
+
+    return commonUtils.sendSuccessResponse(req, res, appStrings.LOGOUT_SUCCESS);
   } catch (err) {
-    res.json({ message: STRINGS.LOGOUT_ERROR, err: err.message });
+    console.error("Logout error:", err);
+    return commonUtils.sendErrorResponse(
+      req,
+      res,
+      appStrings.LOGOUT_ERROR,
+      { error: err.message },
+      500
+    );
   }
-}
+};
 
 //==================== multiple file upload controller==============================
 
@@ -210,13 +334,13 @@ const multered = (req, res, next) => {
       if (err instanceof multer.MulterError) {
         return res.status(400).json({
           success: false,
-          message: STRINGS.UPLOAD_MULTER_ERROR,
+          message: appStrings.UPLOAD_MULTER_ERROR,
           error: err.message,
         });
       } else if (err) {
         return res.status(400).json({
           success: false,
-          message:  STRINGS.UPLOAD_ERROR,
+          message: appStrings.UPLOAD_ERROR,
           error: err.message,
         });
       }
@@ -224,7 +348,7 @@ const multered = (req, res, next) => {
       if (!req.files || req.files.length === 0) {
         return res.status(400).json({
           success: false,
-          message: STRINGS.UOLOAD_MESSAGE,
+          message: appStrings.UOLOAD_MESSAGE,
         });
       }
 
@@ -236,15 +360,15 @@ const multered = (req, res, next) => {
           fs.unlinkSync(file.path);
           return res.status(400).json({
             success: false,
-            error:STRINGS.UPLOAD_VALIDATION,
+            error: appStrings.UPLOAD_VALIDATION,
           });
         }
-     // check the fileSize
+        // check the fileSize
         if (file.size > 5 * 1024 * 1024) {
           fs.unlinkSync(file.path);
           return res.status(400).json({
             success: false,
-            error: STRINGS.UPLOAD_LIMIT,
+            error: appStrings.UPLOAD_LIMIT,
           });
         }
       }
@@ -257,7 +381,7 @@ const multered = (req, res, next) => {
 
       return res.status(200).json({
         success: true,
-        message:STRINGS.UPLOAD_SUCCESS,
+        message: appStrings.UPLOAD_SUCCESS,
         data: files,
       });
     });
@@ -269,61 +393,53 @@ const multered = (req, res, next) => {
   }
 };
 
-
-/// add adresss
- const addAdress = async function (req, res) {
+// refresh token api 
+ const refreshAccessToken = async (req, res) => {
   try {
-    const {street, city, state, zipCode, userId} = req.body;
-    console.log(req.body)
-    // 1. Validate Input
-    // if (!userId || !street || !city || !state || !zipCode) {
-    //   return utils.sendErrorResponse(
-    //     req, res, STRINGS.ADDRESS_ERROR,
-    //     { error: "All address fields (street, city, state, zipCode, userId) are required" },
-    //     400
-    //   );
-    // }
+    const refreshToken = req.cookies.refreshToken;
+    console.log('refreshToken cookie:', refreshToken);
 
-    // 2. Check if User exists
-    const userExists = await User.findById(userId);
-    if (!userExists) {
-      return res.status(404).json({ message: "User not found" });
+    if (!refreshToken) {
+      return res.status(401).json({ message: appStrings.REFRESH_TOKEN_MISSING });
     }
 
-    // 3.  Check for duplicate address for this user
-    const duplicateAddress = await Address.findOne({ userId, street, city, state, zipCode });
-    if (duplicateAddress) {
-        return utils.sendErrorResponse(
-            req, res, STRINGS.ADDRESS_ERROR,
-            { error: "This address already exists for this user" },
-            409
-        );
-    }
+    const decoded = token.verifyRefreshToken(refreshToken);
+    console.log('decoded refresh token:', decoded);
 
-    // 4. Create and Save Address
-    const address = new Address({
-      street,
-      city,
-      state,
-      zipCode,
-      userId,
-      // If this is the first address, set it as primary
-      isPrimary: req.body.isPrimary || false 
-    });
+    const newAccessToken = token.generateAccessToken({ id: decoded.id });
 
-    await address.save();
+    commonUtils.storeAcessTokenInCookie(res, "accessToken", newAccessToken);
 
+  
+  await redisClient.set(`user:access:${decoded.id}`, newAccessToken, { EX: 600 });
+    
 
-    return utils.sendSuccessResponse(req, res, STRINGS.ADDRESS_ADDED, {
-      address: address // Return the full created object
-    });
-
-  } catch (err) {
-    return utils.sendErrorResponse(
-      req, res, STRINGS.ADDRESS_ERROR,
-      { error: err.message },
-      500
+    commonUtils.storeAcessTokenInCookie(
+       res,
+      "accessToken",
+      newAccessToken
     );
+
+    return res.status(200).json({
+      message: appStrings.ACCESS_TOKEN_REFRESHED,
+      accessToken: newAccessToken
+    });
+  } catch (err) {
+    console.error('refreshAccessToken error:', err);
+
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        message: appStrings.REFRESH_TOKEN_EXPIRE
+      });
+    }
+
+    return res.status(401).json({
+      message:appStrings.INVALID_REFRESH_TOKEN,
+      error: err.message
+    });
   }
 };
-module.exports = { register, login, getprofile, deletuser, logout, multered,addAdress};
+
+
+
+module.exports = { register, login, getprofile, deletuser, logout, multered ,refreshAccessToken};

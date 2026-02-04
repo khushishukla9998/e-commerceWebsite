@@ -5,6 +5,6 @@ const commonUtils = require("../utils/commonUtils");
 
 
 
-commonUtils.routeArray(routeArray, routes);
+commonUtils.routeArray(routeArray, routes );
 
 module.exports = routes
