@@ -6,6 +6,7 @@ const ENUM = require("../../utils/enum");
 const appStrings = require("../../utils/appString");
 const commonUtils = require("../../utils/commonUtils");
 const User = require("../../user/model/userModel");
+const redisClient = require("../../utils/redisClient");
 const { lookup } = require("node:dns");
 
 //=================register Admin ============================//
@@ -63,6 +64,9 @@ const registerAdmin = async function (req, res) {
     });
     commonUtils.storeAcessTokenInCookie(res, "accessToken", accessToken);
     commonUtils.storeRefreshTokenInCookie(res, "refreshToken", refreshToken);
+
+    // Store Admin Token in Redis 
+    await redisClient.set(`user:access:${admin._id}`, accessToken, { EX: 600 });
 
     return commonUtils.sendSuccessResponse(
       req,
@@ -123,6 +127,9 @@ const adminLogin = async function (req, res) {
 
     commonUtils.storeAcessTokenInCookie(res, "accessToken", accessToken);
     commonUtils.storeRefreshTokenInCookie(res, "refreshToken", refreshToken);
+
+    // Store Admin Token in Redis 
+    await redisClient.set(`user:access:${admin._id}`, accessToken, { EX: 600 });
 
     return commonUtils.sendSuccessResponse(req, res, appStrings.LOGIN_SUCCESS, {
       admin: {
@@ -216,7 +223,8 @@ const getAlluser = async (req, res) => {
 
 const updateUserStatus = async (req, res) => {
   try {
-    const { userId, status, isDeleted } = req.body;
+    let { userId, id, status, isDeleted } = req.body;
+    userId = userId || id;
 
     const user = await User.findById(userId);
 
