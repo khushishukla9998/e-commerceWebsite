@@ -57,4 +57,5 @@ module.exports = {
   USER_ALREADY_DELETED: "User is already deleted and cannot be modified.",
   STATUS_UPDATED: "User status updated successfully.",
   USER_ADMIN_DELETED: "Your account has been deleted by Admin. Please contact support.",
+  FETCH_SUCCESS:"Fetch successfully"
 };

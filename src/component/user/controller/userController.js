@@ -173,7 +173,7 @@ async function getprofile(req, res) {
       },
       {
         $lookup: {
-          from: "addresses", // Collection name for Address model
+          from: "addresses", 
           let: { userId: "$_id" },
           pipeline: [
             {
@@ -186,7 +186,7 @@ async function getprofile(req, res) {
                 }
               }
             },
-            { $project: { _id: 0, street: 1, city: 1, state: 1, zipCode: 1 } } // Only need specific fields
+            { $project: { _id: 0, street: 1, city: 1, state: 1, zipCode: 1 } } 
           ],
           as: "primaryAddress"
         }
@@ -204,7 +204,7 @@ async function getprofile(req, res) {
           email: 1,
           status: 1,
           profileImage: 1,
-          primaryAddress: 1 // Will be an object or null
+          primaryAddress: 1
         }
       }
     ]);
@@ -242,7 +242,9 @@ async function deletuser(req, res) {
   }
 }
 
-//logout
+
+
+//=================================logout==============================================
 
 
 

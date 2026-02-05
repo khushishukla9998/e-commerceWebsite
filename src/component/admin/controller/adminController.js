@@ -65,7 +65,7 @@ const registerAdmin = async function (req, res) {
     commonUtils.storeAcessTokenInCookie(res, "accessToken", accessToken);
     commonUtils.storeRefreshTokenInCookie(res, "refreshToken", refreshToken);
 
-    // Store Admin Token in Redis 
+    // Store Admin Token in Redis
     await redisClient.set(`user:access:${admin._id}`, accessToken, { EX: 600 });
 
     return commonUtils.sendSuccessResponse(
@@ -128,7 +128,7 @@ const adminLogin = async function (req, res) {
     commonUtils.storeAcessTokenInCookie(res, "accessToken", accessToken);
     commonUtils.storeRefreshTokenInCookie(res, "refreshToken", refreshToken);
 
-    // Store Admin Token in Redis 
+    // Store Admin Token in Redis
     await redisClient.set(`user:access:${admin._id}`, accessToken, { EX: 600 });
 
     return commonUtils.sendSuccessResponse(req, res, appStrings.LOGIN_SUCCESS, {
@@ -152,12 +152,85 @@ const adminLogin = async function (req, res) {
   }
 };
 
-// get list of user with address======================
+// ===================================get list of user with address and statuds updeted======================
+
+// const getAlluser = async (req, res) => {
+//   try {
+//     const { search, deletedUser, subType } = req.query;
+
+//     let matchCondition = {};
+
+//     if (search) {
+//       matchCondition.$or = [
+//         { name: { $regex: search, $options: "i" } },
+//         { email: { $regex: search, $options: "i" } },
+//       ];
+//     }
+
+//     // Filter by deleted status
+//     if (deletedUser === "true") {
+//       if (subType === "user") {
+//         matchCondition.isDeleted = ENUM.DELETE_STATUS.USER_DELETE;
+//       } else if (subType === "admin") {
+//         matchCondition.isDeleted = ENUM.DELETE_STATUS.ADMIN_DELETE;
+//       } else {
+//         matchCondition.isDeleted = {
+//           $in: [
+//             ENUM.DELETE_STATUS.USER_DELETE,
+//             ENUM.DELETE_STATUS.ADMIN_DELETE,
+//           ],
+//         };
+//       }
+//     } else {
+//       matchCondition.isDeleted = ENUM.DELETE_STATUS.NOT_DELETE;
+//     }
+
+//     const users = await User.aggregate([
+//       {
+//         $match: matchCondition,
+//       },
+//       {
+//         $lookup: {
+//           from: "addresses",
+//           localField: "_id",
+//           foreignField: "userId",
+//           as: "addresses",
+//         },
+//       },
+//       {
+//         $project: {
+//           name: 1,
+//           email: 1,
+//           status: 1,
+//           isDeleted: 1,
+//           addresses: 1,
+//         },
+//       },
+//     ]);
+
+//     return res.status(200).json({
+//       success: true,
+//       totalUsers: users.length,
+//       users,
+//     });
+//   } catch (err) {
+//     return commonUtils.sendErrorResponse(
+//       req,
+//       res,
+//       appStrings.FAILED_FETCH,
+//       { error: err.message },
+//       500,
+//     );
+//   }
+// };
+
+
 
 const getAlluser = async (req, res) => {
   try {
     const { search, deletedUser, subType } = req.query;
-
+  let{page=1, limit = 5 }=req.query
+  const skip = (page-1)*limit;
     let matchCondition = {};
 
     if (search) {
@@ -175,17 +248,22 @@ const getAlluser = async (req, res) => {
         matchCondition.isDeleted = ENUM.DELETE_STATUS.ADMIN_DELETE;
       } else {
         matchCondition.isDeleted = {
-          $in: [ENUM.DELETE_STATUS.USER_DELETE, ENUM.DELETE_STATUS.ADMIN_DELETE],
+          $in: [
+            ENUM.DELETE_STATUS.USER_DELETE,
+            ENUM.DELETE_STATUS.ADMIN_DELETE,
+          ],
         };
       }
     } else {
       matchCondition.isDeleted = ENUM.DELETE_STATUS.NOT_DELETE;
     }
 
-    const users = await User.aggregate([
-      {
-        $match: matchCondition,
-      },
+
+
+    const result = await User.aggregate([
+      {$match: matchCondition,},
+       { $sort: { createdAt: -1 } },
+      
       {
         $lookup: {
           from: "addresses",
@@ -203,11 +281,42 @@ const getAlluser = async (req, res) => {
           addresses: 1,
         },
       },
+
+       {
+        $facet: {
+          metadata: [
+            { $count: "totalItems" },
+            {
+              $addFields: {
+                currentPage: page,
+                pageSize: limit
+              }
+            }
+          ],
+          data: [
+            { $skip: skip },
+            { $limit: limit },
+
+          ]
+        }
+      }
     ]);
+
+    const metadata = result[0].metadata[0] || {
+      totalItems: 0,
+      currentPage: page,
+      pageSize: limit
+    };
+
+    const users = result[0].data;
+    const totalPages = metadata.totalItems === 0? 0 : Math.ceil(metadata.totalItems / metadata.pageSize);
 
     return res.status(200).json({
       success: true,
-      totalUsers: users.length,
+      totalUsers: metadata.totalItems,
+       totalPages,
+        currentPage: metadata.currentPage,
+        pageSize: metadata.pageSize,
       users,
     });
   } catch (err) {
@@ -221,37 +330,69 @@ const getAlluser = async (req, res) => {
   }
 };
 
+
+//==============activate and deactivate user account =============================
 const updateUserStatus = async (req, res) => {
   try {
-    let { userId, id, status, isDeleted } = req.body;
+    let { userId, id, status, isDeleted, deletedBy } = req.body;
     userId = userId || id;
 
     const user = await User.findById(userId);
 
     if (!user) {
-      return commonUtils.sendErrorResponse(req, res, appStrings.USER_NOT_FOUND, null, 404);
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        appStrings.USER_NOT_FOUND,
+        null,
+        404,
+      );
     }
 
-    // Admin must not be able to activate or deactivate a deleted user
-    if (user.isDeleted === ENUM.DELETE_STATUS.USER_DELETE || user.isDeleted === ENUM.DELETE_STATUS.ADMIN_DELETE) {
-      // but wait, Admin SHOULD be able to delete a user (ADMIN_DELETE)
-      // The requirement says: Admin must not be able to activate or deactivate a DELETED user.
-      // This likely refers to changing 'status' (Active/Inactive) once it's deleted.
+    // Admin  not be able to activate or deactivate a deleted user
+    if (user.isDeleted === ENUM.DELETE_STATUS.USER_DELETE) {
       if (status !== undefined) {
-        return commonUtils.sendErrorResponse(req, res, appStrings.USER_ALREADY_DELETED, null, 400);
+        return commonUtils.sendErrorResponse(
+          req,
+          res,
+          appStrings.USER_ALREADY_DELETED,
+          null,
+          400,
+        );
       }
     }
 
     const updateData = {};
     if (status !== undefined) updateData.status = status;
     if (isDeleted !== undefined) updateData.isDeleted = isDeleted;
+    updateData.deletedBy=req.headers.id
 
-    const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true });
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
+      new: true,
+    });
 
-    return commonUtils.sendSuccessResponse(req, res, appStrings.STATUS_UPDATED, { user: updatedUser });
+    return commonUtils.sendSuccessResponse(
+      req,
+      res,
+      appStrings.STATUS_UPDATED,
+      { user: updatedUser },
+
+    );
   } catch (err) {
-    return commonUtils.sendErrorResponse(req, res, appStrings.SERVER_ERROR, { error: err.message }, 500);
+    return commonUtils.sendErrorResponse(
+      req,
+      res,
+      appStrings.SERVER_ERROR,
+      { error: err.message },
+      500,
+    );
   }
 };
 
 module.exports = { registerAdmin, adminLogin, getAlluser, updateUserStatus };
+//user.isDeleted === ENUM.DELETE_STATUS.ADMIN_DELETE
+
+// GET /api/admin/getallUsers?search=jems&deletedUser=false
+// GET /api/admin/getallUsers?search=jems&deletedUser=true&subType=user
+// GET /api/admin/getallUsers?deletedUser=true&subType=admin
+// GET /api/admin/getallUsers 

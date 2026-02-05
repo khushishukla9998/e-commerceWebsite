@@ -29,7 +29,9 @@ const userSchema = mongoose.Schema({
         type: Number,
         default: ENUM.DELETE_STATUS.NOT_DELETE
     },
-
+  deletedBy:{
+    type:mongoose.Types.ObjectId
+  }
 
 });
 
