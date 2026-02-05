@@ -53,14 +53,14 @@ const register = async function (req, res) {
     commonUtils.storeAcessTokenInCookie(res, "accessToken", accessToken);
     commonUtils.storeRefreshTokenInCookie(res, "refreshToken", refreshToken);
 
-     // Store Access & Refresh Tokens in Redis
+    // Store Access & Refresh Tokens in Redis
     // await redisClient.set(user._id.toString(),accessToken , { EX: 600 });
     // await redisClient.set(user._id.toString(),refreshToken,  { EX: 604800 }); // 7 days
-  
-await redisClient.set(`user:access:${user._id}`, accessToken, { EX: 600 });
+
+    await redisClient.set(`user:access:${user._id}`, accessToken, { EX: 600 });
 
 
-await redisClient.set(`user:refresh:${user._id}`, refreshToken, { EX: 604800 });
+    await redisClient.set(`user:refresh:${user._id}`, refreshToken, { EX: 604800 });
 
 
     // send success response
@@ -102,7 +102,11 @@ const login = async function (req, res) {
 
     // if user not active or not register
     if (!user) {
-      return commonUtils.sendErrorResponse(res, appStrings.USER_NOT_FOUND);
+      const deletedUser = await User.findOne({ email });
+      if (deletedUser && deletedUser.isDeleted === ENUM.DELETE_STATUS.ADMIN_DELETE) {
+        return commonUtils.sendErrorResponse(req, res, appStrings.USER_ADMIN_DELETED, null, 403);
+      }
+      return commonUtils.sendErrorResponse(req, res, appStrings.USER_NOT_FOUND);
     }
 
     // compare the password which is enter by the user is correct with privious password and not
@@ -131,7 +135,7 @@ const login = async function (req, res) {
     await redisClient.set(`user:access:${user._id}`, accessToken, { EX: 600 });
 
 
-await redisClient.set(`user:refresh:${user._id}`, refreshToken, { EX: 604800 });
+    await redisClient.set(`user:refresh:${user._id}`, refreshToken, { EX: 604800 });
 
     // ==============send the response===========================
     return commonUtils.sendSuccessResponse(req, res, appStrings.LOGIN_SUCCESS, {
@@ -164,7 +168,7 @@ async function getprofile(req, res) {
       {
         $match: {
           _id: new mongoose.Types.ObjectId(userId),
-          isDeleted: false // Assuming boolean based on model, or check ENUM if needed but model has default false
+          isDeleted: ENUM.DELETE_STATUS.NOT_DELETE
         },
       },
       {
@@ -228,7 +232,7 @@ async function getprofile(req, res) {
 async function deletuser(req, res) {
   try {
     await User.findByIdAndUpdate(req.user.id, {
-      isDeleted: ENUM.DELETE_STATUS.DELETE,
+      isDeleted: ENUM.DELETE_STATUS.USER_DELETE,
       status: ENUM.USER_STATUS.INACTIVE,
     });
 
@@ -394,7 +398,7 @@ const multered = (req, res, next) => {
 };
 
 // refresh token api 
- const refreshAccessToken = async (req, res) => {
+const refreshAccessToken = async (req, res) => {
   try {
     const refreshToken = req.cookies.refreshToken;
     console.log('refreshToken cookie:', refreshToken);
@@ -410,12 +414,12 @@ const multered = (req, res, next) => {
 
     commonUtils.storeAcessTokenInCookie(res, "accessToken", newAccessToken);
 
-  
-  await redisClient.set(`user:access:${decoded.id}`, newAccessToken, { EX: 600 });
-    
+
+    await redisClient.set(`user:access:${decoded.id}`, newAccessToken, { EX: 600 });
+
 
     commonUtils.storeAcessTokenInCookie(
-       res,
+      res,
       "accessToken",
       newAccessToken
     );
@@ -434,7 +438,7 @@ const multered = (req, res, next) => {
     }
 
     return res.status(401).json({
-      message:appStrings.INVALID_REFRESH_TOKEN,
+      message: appStrings.INVALID_REFRESH_TOKEN,
       error: err.message
     });
   }
@@ -442,4 +446,4 @@ const multered = (req, res, next) => {
 
 
 
-module.exports = { register, login, getprofile, deletuser, logout, multered ,refreshAccessToken};
+module.exports = { register, login, getprofile, deletuser, logout, multered, refreshAccessToken };

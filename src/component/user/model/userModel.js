@@ -26,7 +26,7 @@ const userSchema = mongoose.Schema({
         default: ENUM.USER_STATUS.ACTIVE
     },
     isDeleted: {
-        type: Boolean,
+        type: Number,
         default: ENUM.DELETE_STATUS.NOT_DELETE
     },
 

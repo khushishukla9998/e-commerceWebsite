@@ -54,4 +54,7 @@ module.exports = {
 
   USER_NOT_AUTHORIZED: "You are not Authurized as User !",
   ADMIN_NOT_AUTHORIZED: "You are not Authurized as Admin !",
+  USER_ALREADY_DELETED: "User is already deleted and cannot be modified.",
+  STATUS_UPDATED: "User status updated successfully.",
+  USER_ADMIN_DELETED: "Your account has been deleted by Admin. Please contact support.",
 };

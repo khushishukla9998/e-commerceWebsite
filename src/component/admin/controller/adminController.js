@@ -149,7 +149,7 @@ const adminLogin = async function (req, res) {
 
 const getAlluser = async (req, res) => {
   try {
-    const { search } = req.query;
+    const { search, deletedUser, subType } = req.query;
 
     let matchCondition = {};
 
@@ -158,6 +158,21 @@ const getAlluser = async (req, res) => {
         { name: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
       ];
+    }
+
+    // Filter by deleted status
+    if (deletedUser === "true") {
+      if (subType === "user") {
+        matchCondition.isDeleted = ENUM.DELETE_STATUS.USER_DELETE;
+      } else if (subType === "admin") {
+        matchCondition.isDeleted = ENUM.DELETE_STATUS.ADMIN_DELETE;
+      } else {
+        matchCondition.isDeleted = {
+          $in: [ENUM.DELETE_STATUS.USER_DELETE, ENUM.DELETE_STATUS.ADMIN_DELETE],
+        };
+      }
+    } else {
+      matchCondition.isDeleted = ENUM.DELETE_STATUS.NOT_DELETE;
     }
 
     const users = await User.aggregate([
@@ -174,16 +189,18 @@ const getAlluser = async (req, res) => {
       },
       {
         $project: {
-          name: "$name",
-          email: "$email",
-          addresses: "$addresess",
+          name: 1,
+          email: 1,
+          status: 1,
+          isDeleted: 1,
+          addresses: 1,
         },
       },
     ]);
 
     return res.status(200).json({
       success: true,
-      totalUsers: User.length,
+      totalUsers: users.length,
       users,
     });
   } catch (err) {
@@ -197,4 +214,36 @@ const getAlluser = async (req, res) => {
   }
 };
 
-module.exports = { registerAdmin, adminLogin, getAlluser };
+const updateUserStatus = async (req, res) => {
+  try {
+    const { userId, status, isDeleted } = req.body;
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return commonUtils.sendErrorResponse(req, res, appStrings.USER_NOT_FOUND, null, 404);
+    }
+
+    // Admin must not be able to activate or deactivate a deleted user
+    if (user.isDeleted === ENUM.DELETE_STATUS.USER_DELETE || user.isDeleted === ENUM.DELETE_STATUS.ADMIN_DELETE) {
+      // but wait, Admin SHOULD be able to delete a user (ADMIN_DELETE)
+      // The requirement says: Admin must not be able to activate or deactivate a DELETED user.
+      // This likely refers to changing 'status' (Active/Inactive) once it's deleted.
+      if (status !== undefined) {
+        return commonUtils.sendErrorResponse(req, res, appStrings.USER_ALREADY_DELETED, null, 400);
+      }
+    }
+
+    const updateData = {};
+    if (status !== undefined) updateData.status = status;
+    if (isDeleted !== undefined) updateData.isDeleted = isDeleted;
+
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true });
+
+    return commonUtils.sendSuccessResponse(req, res, appStrings.STATUS_UPDATED, { user: updatedUser });
+  } catch (err) {
+    return commonUtils.sendErrorResponse(req, res, appStrings.SERVER_ERROR, { error: err.message }, 500);
+  }
+};
+
+module.exports = { registerAdmin, adminLogin, getAlluser, updateUserStatus };
