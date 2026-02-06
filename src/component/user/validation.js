@@ -1,7 +1,8 @@
 const Validator = require("validatorjs");
-const commonUtils = require("../utils/commonUtils")
+const commonUtils = require("../utils/commonUtils");
 
-//for Registartionvalidation 
+//===============for Registartionvalidation============================
+
 async function registerValidation(req, res, next) {
   const validationRule = {
     email: `required|string|min:4|max:255`,
@@ -13,39 +14,53 @@ async function registerValidation(req, res, next) {
   validatorUtilWithCallback(validationRule, {}, req, res, next);
 }
 
-
-async function  loginValidation(req,res,next){
-
+//================for Login validation======================================
+async function loginValidation(req, res, next) {
   const validationRule = {
-    email
-  }
+    email: `required|string|min:4|max:255`,
+    password:
+      "required|min:6|max:50|regex:/[A-Z]/|regex:/[0-9]/|regex:/[@$!%*#?&]/",
+  };
+  // Call common validator utility
+  validatorUtilWithCallback(validationRule, {}, req, res, next);
 }
 
-const validatorUtilWithCallback = (
-    rules,
-    customMessages,
-    req,
-    res,
-    next
-) => {
+//================ Reset Password Validation================================
+async function ResetPasswordValidation(req, res, next) {
+  const validationRule = {
+    password:
+      "required|min:6|max:50|regex:/[A-Z]/|regex:/[0-9]/|regex:/[@$!%*#?&]/",
+  };
+  validatorUtilWithCallback(validationRule, {}, req, res, next);
+}
 
-    // Set validation language from request header (default: en)
-    Validator.useLang(req.headers.lang ?? 'en');
 
-    // Create validator instance using request body
-    const validation = new Validator(req.body, rules, customMessages);
+//==================common validationfunction=============================
 
-    // If validation passes, move to next middleware/controller
-    validation.passes(() => next());
+const validatorUtilWithCallback = (rules, customMessages, req, res, next) => {
+  // Set validation language from request header (default: en)
+  Validator.useLang(req.headers.lang ?? "en");
 
-    // If validation fails, return formatted error response
-    validation.fails(() =>
-        commonUtils.sendErrorResponse(req, res,validation.errors ,422 
-         // ,{ errors: commonUtils.sendErrorResponse(validation.errors.errors)}
-         )
-    );
+  // Create validator instance using request body
+  const validation = new Validator(req.body, rules, customMessages);
+
+  // If validation passes, move to next middleware/controller
+  validation.passes(() => next());
+
+  // If validation fails, return formatted error response
+  validation.fails(() =>
+    commonUtils.sendErrorResponse(
+      req,
+      res,
+      validation.errors,
+      422,
+      // ,{ errors: commonUtils.sendErrorResponse(validation.errors.errors)}
+    ),
+  );
 };
 
 module.exports = {
-  registerValidation
-}
+  registerValidation,
+  loginValidation,
+  ResetPasswordValidation
+};

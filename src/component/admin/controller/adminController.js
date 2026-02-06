@@ -7,7 +7,7 @@ const appStrings = require("../../utils/appString");
 const commonUtils = require("../../utils/commonUtils");
 const User = require("../../user/model/userModel");
 const redisClient = require("../../utils/redisClient");
-const { lookup } = require("node:dns");
+
 
 //=================register Admin ============================//
 console.log("Body in adminLogin:");
@@ -226,11 +226,13 @@ const adminLogin = async function (req, res) {
 
 
 
+//=============================USER LIST API==================================
+
 const getAlluser = async (req, res) => {
   try {
     const { search, deletedUser, subType } = req.query;
-  let{page=1, limit = 5 }=req.query
-  const skip = (page-1)*limit;
+    let { page = 1, limit = 5 } = req.query;
+    const skip = (page - 1) * limit;
     let matchCondition = {};
 
     if (search) {
@@ -258,12 +260,10 @@ const getAlluser = async (req, res) => {
       matchCondition.isDeleted = ENUM.DELETE_STATUS.NOT_DELETE;
     }
 
-
-
     const result = await User.aggregate([
-      {$match: matchCondition,},
-       { $sort: { createdAt: -1 } },
-      
+      { $match: matchCondition },
+      { $sort: { createdAt: -1 } },
+
       {
         $lookup: {
           from: "addresses",
@@ -282,41 +282,40 @@ const getAlluser = async (req, res) => {
         },
       },
 
-       {
+      {
         $facet: {
           metadata: [
             { $count: "totalItems" },
             {
               $addFields: {
                 currentPage: page,
-                pageSize: limit
-              }
-            }
+                pageSize: limit,
+              },
+            },
           ],
-          data: [
-            { $skip: skip },
-            { $limit: limit },
-
-          ]
-        }
-      }
+          data: [{ $skip: skip }, { $limit: limit }],
+        },
+      },
     ]);
 
     const metadata = result[0].metadata[0] || {
       totalItems: 0,
       currentPage: page,
-      pageSize: limit
+      pageSize: limit,
     };
 
     const users = result[0].data;
-    const totalPages = metadata.totalItems === 0? 0 : Math.ceil(metadata.totalItems / metadata.pageSize);
+    const totalPages =
+      metadata.totalItems === 0
+        ? 0
+        : Math.ceil(metadata.totalItems / metadata.pageSize);
 
     return res.status(200).json({
       success: true,
       totalUsers: metadata.totalItems,
-       totalPages,
-        currentPage: metadata.currentPage,
-        pageSize: metadata.pageSize,
+      totalPages,
+      currentPage: metadata.currentPage,
+      pageSize: metadata.pageSize,
       users,
     });
   } catch (err) {
@@ -330,8 +329,8 @@ const getAlluser = async (req, res) => {
   }
 };
 
+//==============ACTIVE AND DEACTIVE USER ACCOUNT BY ADMIN (API) =============================
 
-//==============activate and deactivate user account =============================
 const updateUserStatus = async (req, res) => {
   try {
     let { userId, id, status, isDeleted, deletedBy } = req.body;
@@ -365,7 +364,7 @@ const updateUserStatus = async (req, res) => {
     const updateData = {};
     if (status !== undefined) updateData.status = status;
     if (isDeleted !== undefined) updateData.isDeleted = isDeleted;
-    updateData.deletedBy=req.headers.id
+    updateData.deletedBy = req.headers.id;
 
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
       new: true,
@@ -376,7 +375,6 @@ const updateUserStatus = async (req, res) => {
       res,
       appStrings.STATUS_UPDATED,
       { user: updatedUser },
-
     );
   } catch (err) {
     return commonUtils.sendErrorResponse(
@@ -389,10 +387,15 @@ const updateUserStatus = async (req, res) => {
   }
 };
 
+
+
+
+
+
 module.exports = { registerAdmin, adminLogin, getAlluser, updateUserStatus };
 //user.isDeleted === ENUM.DELETE_STATUS.ADMIN_DELETE
 
 // GET /api/admin/getallUsers?search=jems&deletedUser=false
 // GET /api/admin/getallUsers?search=jems&deletedUser=true&subType=user
 // GET /api/admin/getallUsers?deletedUser=true&subType=admin
-// GET /api/admin/getallUsers 
+// GET /api/admin/getallUsers

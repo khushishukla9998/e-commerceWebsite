@@ -6,7 +6,7 @@ const cors = require("cors");
 const path = require("path");
 const userIndex = require("./src/component/user/index");
 const adminIndex = require("./src/component/admin/index");
-const passwordIndex = require("./src/component/forgot password/index")
+// const passwordIndex = require("./src/component/forgot password/index")
  const appStrings  = require("../filestructure/src/component/utils/appString")
  const config = require("./config/dev.json")
 
@@ -30,7 +30,7 @@ app.use((req, res, next) => {
 
 app.use("/api", userIndex);
 app.use("/api/admin", adminIndex);
-app.use("/api/password",passwordIndex)
+// app.use("/api/password",passwordIndex)
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 

@@ -56,6 +56,20 @@ module.exports = {
   ADMIN_NOT_AUTHORIZED: "You are not Authurized as Admin !",
   USER_ALREADY_DELETED: "User is already deleted and cannot be modified.",
   STATUS_UPDATED: "User status updated successfully.",
-  USER_ADMIN_DELETED: "Your account has been deleted by Admin. Please contact support.",
-  FETCH_SUCCESS:"Fetch successfully"
+  USER_ADMIN_DELETED:
+    "Your account has been deleted by Admin. Please contact support.",
+  FETCH_SUCCESS: "Fetch successfully",
+
+  //PASSWORD MACHANISM
+  OTP_SENT_SUCCESS: "OTP sent successfully",
+  OTP_SEND_FAILED: "OTP send failed",
+  PASSWORD_MISMATCH: "New password and Confirm password do not match!",
+  PASSWORD_MATCH: "New password should not be same as Old password",
+  OTP_NOT_VERFIFIED: " Otp not verified",
+  OTP_VERIFIED: "Youre OTP is verified",
+  INCORRECT_OLD_PASSWORD: "Old password is incorrect",
+  PAASWORD_RESET_SUCCESS: "Password reset successfully",
+  PASSWORD_RESET_FAILED: "Password reset failed",
+  INVALID_OTP: "Otp invalid ",
+  OTP_EXPIRED: " Youre OTP is Expired ",
 };

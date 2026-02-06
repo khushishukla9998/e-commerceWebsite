@@ -3,13 +3,14 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const otpGenerator = require("otp-generator");
 const nodemailer = require("nodemailer");
-const User = require("../../user/model/userModel");
+const User = require("../model/userModel");
 const config = require("../../../../config/dev.json");
 commonUtils = require("../../utils/commonUtils");
 const Otp = require("../model/otpModel");
 const path = require("path")
 const ejs = require("ejs")
 const bcrypt = require("bcryptjs");
+const appString = require("../../utils/appString")
 
 
 const Otp_expiry = 10 * 60 * 1000; // 10 min
@@ -28,7 +29,7 @@ const fotgotPassword = async (req, res) => {
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: "user not found",
+        message: appString.USER_NOT_FOUND,
       });
     }
 
@@ -61,6 +62,7 @@ const fotgotPassword = async (req, res) => {
     }
     const templatePath = path.join(__dirname, "..", "..", "..", "ejsTemplate", "otp.ejs")
     const html = await ejs.renderFile(templatePath, data)
+
     await transporter.sendMail({
       from: config.EMAIL_SENDER,
       to: email,
@@ -71,12 +73,12 @@ const fotgotPassword = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "OTP sent successfully",
+      message: appString.OTP_SENT_SUCCESS,
     });
   } catch (err) {
     return res.status(500).json({
       success: false,
-      message: "OTP send failed",
+      message: appString.OTP_SEND_FAILED,
       error: err.message,
     });
   }
@@ -91,27 +93,38 @@ const resetPassword = async (req, res) => {
     if (newPassword !== confirmPassword) {
       return res.status(400).json({
         success: false,
-        message: "New password and confirm password do not match",
+        message: appString.PASSWORD_MISMATCH,
       });
     }
+
+
+    if(newPassword === oldPassword){
+      return res.status(400).json({
+        success: false,
+        message: appString.PASSWORD_MATCH,
+      })
+    }
+
+
 
     const otpData = await Otp.findOne({
       email: normalizedEmail,
       isVerified: true
     });
 
+
+
     if (!otpData) {
       return res.status(400).json({
         success: false,
-        message: "OTP not verified",
+        message: appString.OTP_NOT_VERFIFIED,
       });
     }
-
     const user = await User.findById(otpData.userId);
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: "User not found",
+        message: appString.USER_NOT_FOUND,
       });
     }
 
@@ -120,7 +133,7 @@ const resetPassword = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({
         success: false,
-        message: "Old password is incorrect",
+        message: appString.INCORRECT_OLD_PASSWORD
       });
     }
 
@@ -136,20 +149,22 @@ const resetPassword = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Password reset successfully",
+      message: appString.PAASWORD_RESET_SUCCESS,
     });
   } catch (err) {
     return res.status(500).json({
       success: false,
-      message: "Password reset failed",
+      message: appString.PASSWORD_RESET_FAILED,
       error: err.message,
     });
   }
 };
 
+//==========verify OTP============
+
 const verifyOtp = async (req, res) => {
   try {
-    const { email, otp } = req.body;          // correctly read email
+    const { email, otp } = req.body;          
     const normalizedEmail = email.toLowerCase();
 
     const otpData = await Otp.findOne({ email: normalizedEmail, otp });
@@ -157,14 +172,14 @@ const verifyOtp = async (req, res) => {
     if (!otpData) {
       return res.status(400).json({
         success: false,
-        message: "Invalid Otp",
+        message: appString.INVALID_OTP
       });
     }
 
     if (otpData.expiry < Date.now()) {
       return res.status(400).json({
         success: false,
-        message: "Otp expired",
+        message: appString.OTP_EXPIRED
       });
     }
 
@@ -172,12 +187,11 @@ const verifyOtp = async (req, res) => {
     await otpData.save();
     return res.status(200).json({
       success: true,
-      message: "Otp verified",
+      message: appString.OTP_VERIFIED
     });
   } catch (err) {
     return res.status(400).json({
       success: false,
-      message: "server error",
       error: err.message,
     });
   }

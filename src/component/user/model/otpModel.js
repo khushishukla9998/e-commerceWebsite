@@ -7,6 +7,7 @@ const otpSchema = mongoose.Schema({
     ref: "User",
   },
   email: String,
+  
   otp: { type: String, length: 6 },
   expiry: { type: Date, default: Date.now },
   
