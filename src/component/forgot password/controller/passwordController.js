@@ -4,12 +4,12 @@ const mongoose = require("mongoose");
 const otpGenerator = require("otp-generator");
 const nodemailer = require("nodemailer");
 const User = require("../../user/model/userModel");
+const config = require("../../../../config/dev.json");
 commonUtils = require("../../utils/commonUtils");
 const Otp = require("../model/otpModel");
-const { options } = require("..");
-const { error } = require("node:console");
 const path = require("path")
-const ejs =require("ejs")
+const ejs = require("ejs")
+const bcrypt = require("bcryptjs");
 
 
 const Otp_expiry = 10 * 60 * 1000; // 10 min
@@ -22,7 +22,7 @@ const generateOtp = (length = 6) => {
 
 const fotgotPassword = async (req, res) => {
   try {
-    const { email, fromEmail, fromPassword } = req.body;
+    const { email } = req.body;
 
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
@@ -48,23 +48,24 @@ const fotgotPassword = async (req, res) => {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: fromEmail,
-        pass: fromPassword,
+        user: config.EMAIL_SENDER,
+        pass: config.EMAIL_PASSWORD,
       },
     });
 
-    const data={
+    const data = {
+      name: user.name,
       otp: otp,
-      expiry:"10 minutes",
-      email:email
+      expiry: "10 minutes",
+      email: email
     }
-    const templatePath = path.join(__dirname ,"..","..","..","..","..","..", "templates","otp.ejs")
-    const html = await ejs.renderFile(templatePath,data)
+    const templatePath = path.join(__dirname, "..", "..", "..", "ejsTemplate", "otp.ejs")
+    const html = await ejs.renderFile(templatePath, data)
     await transporter.sendMail({
-      from: "khushishukla9998@gmail.com",
+      from: config.EMAIL_SENDER,
       to: email,
       subject: "OTP Verification",
-       html: html
+      html: html
       //  `<h3> YOUR OTP is: ${otp}</h3> <p>Your OTP is valid for 10 min</p>`,
     });
 
@@ -84,13 +85,19 @@ const fotgotPassword = async (req, res) => {
 //====================== reset otp ==========================//
 const resetPassword = async (req, res) => {
   try {
-    const { email, otp, password, newPassword, oldPassword } = req.body;
+    const { email, otp, oldPassword, newPassword, confirmPassword } = req.body;
     const normalizedEmail = email.toLowerCase();
-    const otpString = otp.toString();
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password and confirm password do not match",
+      });
+    }
 
     const otpData = await Otp.findOne({
       email: normalizedEmail,
-     isVerified:true
+      isVerified: true
     });
 
     if (!otpData) {
@@ -100,28 +107,41 @@ const resetPassword = async (req, res) => {
       });
     }
 
-    // if (otpData.expiry < Date.now()) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "OTP expired",
-    //   });
-    // }
+    const user = await User.findById(otpData.userId);
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "User not found",
+      });
+    }
 
-    await User.findByIdAndUpdate(otpData.userId, {
-      password,
+    // Verify old password
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        message: "Old password is incorrect",
+      });
+    }
+
+    // Hash new password
+    const hashPass = await bcrypt.hash(newPassword, 10);
+
+    await User.findByIdAndUpdate(user._id, {
+      password: hashPass,
     });
 
-    // delete used otp// old otp
+    // delete used otp
     await Otp.deleteOne({ _id: otpData._id });
 
     return res.status(200).json({
       success: true,
-      message: "password reset",
+      message: "Password reset successfully",
     });
   } catch (err) {
     return res.status(500).json({
       success: false,
-      message: "password reset failed",
+      message: "Password reset failed",
       error: err.message,
     });
   }
@@ -163,4 +183,4 @@ const verifyOtp = async (req, res) => {
   }
 };
 
-module.exports = { fotgotPassword, resetPassword ,verifyOtp};
+module.exports = { fotgotPassword, resetPassword, verifyOtp };
