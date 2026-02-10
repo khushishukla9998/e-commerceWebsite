@@ -392,7 +392,56 @@ const updateUserStatus = async (req, res) => {
 
 
 
-module.exports = { registerAdmin, adminLogin, getAlluser, updateUserStatus };
+//==============GET ALL USERS WITH DETAILS (CART & ADDRESS) =============================
+const getAllUsersWithDetails = async (req, res) => {
+  try {
+    const users = await User.aggregate([
+      // 1. Match active users
+      {
+        $match: {
+          isDeleted: ENUM.DELETE_STATUS.NOT_DELETE,
+        },
+      },
+      // 2. Lookup Address
+      {
+        $lookup: {
+          from: "addresses",
+          localField: "_id",
+          foreignField: "userId",
+          as: "address",
+        },
+      },
+      // 3. Lookup Cart
+      {
+        $lookup: {
+          from: "carts",
+          localField: "_id",
+          foreignField: "userId",
+          as: "cartData", // Temp alias
+        },
+      },
+      // 4. Project fields
+      {
+        $project: {
+          name: 1,
+          email: 1,
+          status: 1,
+          address: 1,
+          // Flatten cart array to object (since 1 user = 1 cart)
+          cart: { $arrayElemAt: ["$cartData", 0] }
+        },
+      },
+    ]);
+
+    return commonUtils.sendSuccessResponse(req, res, "Users fetched successfully", users);
+
+  } catch (err) {
+    console.error("Error in getAllUsersWithDetails:", err);
+    return commonUtils.sendErrorResponse(req, res, appStrings.SERVER_ERROR, { error: err.message }, 500);
+  }
+};
+
+module.exports = { registerAdmin, adminLogin, getAlluser, updateUserStatus, getAllUsersWithDetails };
 //user.isDeleted === ENUM.DELETE_STATUS.ADMIN_DELETE
 
 // GET /api/admin/getallUsers?search=jems&deletedUser=false

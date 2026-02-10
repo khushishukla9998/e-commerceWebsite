@@ -4,7 +4,7 @@ const { error } = require("node:console");
 
 const addCategory = async (req, res) => {
   try {
-    const { categoryName , image} = req.body;
+    const { categoryName, image } = req.body;
 
     const exist = await Category.findOne({
       categoryName,
@@ -105,13 +105,13 @@ const listCategory = async (req, res) => {
           as: "subcategories",
         },
       },
-//   {
-//     $group: {
-//       _id: "$_id",
-//       name: { $first: "$nparentCategoryIdame" }, 
-//       subcategories: { $first: "$subcategories" } 
-//     }
-//   },
+      //   {
+      //     $group: {
+      //       _id: "$_id",
+      //       name: { $first: "$nparentCategoryIdame" }, 
+      //       subcategories: { $first: "$subcategories" } 
+      //     }
+      //   },
       {
         $project: {
           categoryName: 1,
@@ -252,23 +252,23 @@ const updateCatrgory = async (req, res) => {
     }
 
     if (categoryName) category.categoryName = categoryName;
-    if (status == undefined) category.status = status;
-    category.save();
-    
-      return res.status(200).json({
-        success: true,
-        message: "category updated",
-        data:category
-      });
-    
+    if (status !== undefined) category.status = status;
+    await category.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "category updated",
+      data: category
+    });
+
 
   } catch (err) {
 
     return res.status(400).json({
-        success: false,
-        error: err.message,
+      success: false,
+      error: err.message,
     })
-       
+
   }
 };
 //=======update Sub category=========
@@ -292,7 +292,7 @@ const updateSubCatrgory = async (req, res) => {
     }
     const subCategory = await Category.findOne({
       _id: subCategoryId,
-       parentCategoryId: { $ne: null },
+      parentCategoryId: { $ne: null },
     });
 
     if (!subCategory) {
@@ -303,23 +303,23 @@ const updateSubCatrgory = async (req, res) => {
     }
 
     if (categoryName) subCategory.categoryName = categoryName;
-    if (status == undefined) subCategory.status = status;
-    subCategory.save();
-    
-      return res.status(200).json({
-        success: true,
-        message: " sub category updated",
-        data:subCategory
-      });
-    
+    if (status !== undefined) subCategory.status = status;
+    await subCategory.save();
+
+    return res.status(200).json({
+      success: true,
+      message: " sub category updated",
+      data: subCategory
+    });
+
 
   } catch (err) {
 
     return res.status(400).json({
-        success: false,
-        error: err.message,
+      success: false,
+      error: err.message,
     })
-       
+
   }
 };
 module.exports = {

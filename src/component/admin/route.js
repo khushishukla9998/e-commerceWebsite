@@ -1,6 +1,7 @@
 const express = require("express");
 const adminController = require("./controller/adminController");
 const categoryController = require("./controller/categoryController");
+const productController = require("./controller/productController");
 
 console.log("Loading User Routes...");
 
@@ -37,6 +38,12 @@ module.exports = [
     method: "post",
     controller: adminController.updateUserStatus,
   },
+  {
+    path: "/getUsersWithDetails",
+    method: "get",
+    controller: adminController.getAllUsersWithDetails,
+  },
+
 
   //==============CATEGORY==============
 
@@ -46,7 +53,7 @@ module.exports = [
     controller: categoryController.addCategory,
   },
 
-   {
+  {
     path: "/addSubCategory",
     method: "post",
     controller: categoryController.addSubCategory,
@@ -58,7 +65,7 @@ module.exports = [
     controller: categoryController.listCategory,
   },
 
-   {
+  {
     path: "/deleteSubCategory/:subCategoryId",
     method: "delete",
     controller: categoryController.deleteSubCategory,
@@ -70,18 +77,41 @@ module.exports = [
     controller: categoryController.deleteCategory,
   },
 
-   {
+  {
     path: "/updateCategory/:categoryId",
     method: "put",
     controller: categoryController.updateCatrgory,
   },
 
-   {
+  {
     path: "/updatesubCategory/:subCategoryId",
     method: "put",
     controller: categoryController.updateSubCatrgory,
   },
 
 
+
+  //==============PRODUCT==============
+
+  {
+    path: "/addProduct",
+    method: "post",
+    controller: productController.addProduct,
+  },
+  {
+    path: "/listProduct",
+    method: "get",
+    controller: productController.listProduct,
+  },
+  {
+    path: "/updateProduct/:productId",
+    method: "put",
+    controller: productController.updateProduct,
+  },
+  {
+    path: "/deleteProduct/:productId",
+    method: "delete",
+    controller: productController.deleteProduct,
+  },
 
 ];
