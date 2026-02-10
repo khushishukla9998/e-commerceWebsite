@@ -114,15 +114,15 @@ module.exports = [
     method: "get",
     controller: cartController.getCart,
   },
-  {
-    path: "/updateCartItem",
-    method: "put",
-    controller: cartController.updateCartItem,
-  },
-  {
-    path: "/removeCartItem/:productId",
-    method: "delete",
-    controller: cartController.removeCartItem,
-  },
+  // {
+  //   path: "/updateCartItem",
+  //   method: "put",
+  //   controller: cartController.updateCartItem,
+  // },
+  // {
+  //   path: "/removeCartItem/:productId",
+  //   method: "delete",
+  //   controller: cartController.removeCartItem,
+  // },
 
 ];

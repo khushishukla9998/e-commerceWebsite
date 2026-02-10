@@ -7,14 +7,18 @@ const productSchema = mongoose.Schema({
     },
     description: {
         type: String,
+         required: true,
     },
     price: {
         type: Number,
         required: true,
+        
+
     },
     images: {
         type: [String], // Array of strings for multiple images
         default: [],
+         required: true,
     },
     categoryId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -29,8 +33,15 @@ const productSchema = mongoose.Schema({
     status: {
         type: Number,
         enum: [0, 1],
-        default: 0, // 0: Inactive, 1: Active
+        default: 1, // 0: Inactive, 1: Active
     },
+    quantity:{
+        type: Number,
+        required:true
+    }
+    
+
+
 }, { timestamps: true });
 
 module.exports = mongoose.model("Product", productSchema);

@@ -1,6 +1,7 @@
 const { default: mongoose } = require("mongoose");
 const Category = require("../model/categoryModel");
-const { error } = require("node:console");
+const appString = require("../../utils/appString");
+const commonUtils = require("../../utils/commonUtils");
 
 const addCategory = async (req, res) => {
   try {
@@ -12,10 +13,12 @@ const addCategory = async (req, res) => {
     });
 
     if (exist) {
-      return res.status(400).json({
-        success: false,
-        message: "category already exist ",
-      });
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        appString.CATEGORY_EXIST,
+        null,
+      );
     }
 
     const category = await Category.create({
@@ -23,16 +26,14 @@ const addCategory = async (req, res) => {
       image,
       parentCategoryId: null,
     });
-    return res.status(200).json({
-      success: true,
-      message: "category added successfull",
-      data: category,
-    });
+    return commonUtils.sendSuccessResponse(
+      req,
+      res,
+      appString.CATEGORY_ADDED,
+      category,
+    );
   } catch (err) {
-    return res.status(400).json({
-      success: false,
-      error: err.message,
-    });
+    return commonUtils.sendErrorResponse(req, res, err.message, null);
   }
 };
 
@@ -48,38 +49,61 @@ const addSubCategory = async (req, res) => {
     if (!parentCategory) {
       return res.status(400).json({
         success: false,
-        message: " Parent category not found ",
+        message: appString.PARENT_CAT_NOT_FOUND,
       });
     }
 
     if (!mongoose.Types.ObjectId) {
-      return res.status(400).json({
-        success: false,
-        message: " invalid Parent Category  ",
-      });
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        appString.INVALID_PARENT_CATEGORY,
+        null,
+      );
+
+      // res.status(400).json({
+      //   success: false,
+      //   message: appString.INVALID_PARENT_CATEGORY,
+      // });
     }
     const exist = await Category.findOne({ categoryName, parentCategoryId });
     if (exist) {
-      return res.status(400).json({
-        success: false,
-        message: " SubCategory already exist in thise category ",
-      });
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        appString.appString.SUB_CATEGORY_ADDED,
+        null,
+      );
+
+      // res.status(400).json({
+      //   success: false,
+      //   message: appString.SUB_CATEGORY_ADDED,
+      // });
     }
 
     const subCategory = await Category.create({
       categoryName,
       parentCategoryId,
     });
-    return res.status(200).json({
-      success: true,
-      message: "Subcategory added successfull within Category ",
-      data: subCategory,
-    });
+    return commonUtils.sendSuccessResponse(
+      req,
+      res,
+      appString.SUB_CATEGORY_ADDED,
+      null,
+    );
+
+    // res.status(200).json({
+    //   success: true,
+    //   message:appString.SUB_CATEGORY_ADDED,
+    //   data: subCategory,
+    // });
   } catch (err) {
-    return res.status(400).json({
-      success: false,
-      error: err.message,
-    });
+    return commonUtils.sendErrorResponse(req, res, err.message, null);
+
+    // res.status(400).json({
+    //   success: false,
+    //   error: err.message,
+    // });
   }
 };
 
@@ -91,7 +115,6 @@ const listCategory = async (req, res) => {
       {
         $match: {
           $or: [
-
             { parentCategoryId: null },
             { parentCategoryId: { $exists: false } },
           ],
@@ -108,14 +131,14 @@ const listCategory = async (req, res) => {
       //   {
       //     $group: {
       //       _id: "$_id",
-      //       name: { $first: "$nparentCategoryIdame" }, 
-      //       subcategories: { $first: "$subcategories" } 
+      //       name: { $first: "$nparentCategoryIdame" },
+      //       subcategories: { $first: "$subcategories" }
       //     }
       //   },
       {
         $project: {
-          categoryName: 1,
-          subcategories: 1,
+          categoryName: "$categoryName",
+          subcategories: "$subcategories",
         },
       },
     ]);
@@ -142,7 +165,7 @@ const deleteSubCategory = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(subCategoryId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid SubCategory id",
+        message: appString.INVALID_SUB_CATEGORY,
       });
     }
 
@@ -154,7 +177,7 @@ const deleteSubCategory = async (req, res) => {
     if (!subCategory) {
       return res.status(400).json({
         success: false,
-        message: "Subcategory not found",
+        message: appString.SUB_CAT_NOT_FOUND,
       });
     }
 
@@ -162,7 +185,7 @@ const deleteSubCategory = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Subcategory deleted successfully",
+      message: appString.SUB_CAT_DELETE,
     });
   } catch (err) {
     return res.status(400).json({
@@ -181,7 +204,7 @@ const deleteCategory = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(categoryId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid Category id",
+        message: appString.INVALID_CATEGORY,
       });
     }
 
@@ -196,7 +219,7 @@ const deleteCategory = async (req, res) => {
     if (!category) {
       return res.status(400).json({
         success: false,
-        message: "category not found",
+        message: appString.CAT_NOT_FOUND,
       });
     }
 
@@ -206,7 +229,7 @@ const deleteCategory = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: " Category and it's sub category are deleted ",
+      message: appString.CAT_DELETE,
     });
   } catch (err) {
     return res.status(400).json({
@@ -216,7 +239,7 @@ const deleteCategory = async (req, res) => {
   }
 };
 
-//================update Caregory============================
+//================update Category============================
 
 const updateCatrgory = async (req, res) => {
   try {
@@ -226,14 +249,14 @@ const updateCatrgory = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(categoryId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid Category id",
+        message: appString.INVALID_CATEGORY,
       });
     }
 
     if (!categoryName && status === undefined) {
       return res.status(400).json({
         success: false,
-        message: "nothing to uipdate",
+        message: appString.NOTHING_TO_UPDATE,
       });
     }
     const category = await Category.findOne({
@@ -247,7 +270,7 @@ const updateCatrgory = async (req, res) => {
     if (!category) {
       return res.status(400).json({
         success: false,
-        message: "category not found",
+        message: appString.CAT_NOT_FOUND,
       });
     }
 
@@ -257,18 +280,14 @@ const updateCatrgory = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "category updated",
-      data: category
+      message: appString.CAT_UPDETED,
+      data: category,
     });
-
-
   } catch (err) {
-
     return res.status(400).json({
       success: false,
       error: err.message,
-    })
-
+    });
   }
 };
 //=======update Sub category=========
@@ -280,14 +299,14 @@ const updateSubCatrgory = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(subCategoryId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid Category id",
+        message: appString.INVALID_SUB_CATEGORY,
       });
     }
 
     if (!categoryName && status === undefined) {
       return res.status(400).json({
         success: false,
-        message: "nothing to uipdate",
+        message: appString.NOTHING_TO_UPDATE,
       });
     }
     const subCategory = await Category.findOne({
@@ -298,7 +317,7 @@ const updateSubCatrgory = async (req, res) => {
     if (!subCategory) {
       return res.status(400).json({
         success: false,
-        message: "category not found",
+        message: appString.SUB_CAT_NOT_FOUND,
       });
     }
 
@@ -308,18 +327,14 @@ const updateSubCatrgory = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: " sub category updated",
-      data: subCategory
+      message: appString.SUB_CAT_UPDETED,
+      data: subCategory,
     });
-
-
   } catch (err) {
-
     return res.status(400).json({
       success: false,
       error: err.message,
-    })
-
+    });
   }
 };
 module.exports = {
@@ -329,5 +344,5 @@ module.exports = {
   deleteSubCategory,
   deleteCategory,
   updateCatrgory,
-  updateSubCatrgory
+  updateSubCatrgory,
 };

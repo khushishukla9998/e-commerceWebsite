@@ -5,11 +5,12 @@ const categoriesSchema = mongoose.Schema({
 
    categoryName:{
     type:String,
-    require:true
+    required:true
    },
 
    image:{
-      type:String
+      type:String,
+      required:true
    },
 
    parentCategoryId:{

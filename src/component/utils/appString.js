@@ -72,4 +72,39 @@ module.exports = {
   PASSWORD_RESET_FAILED: "Password reset failed",
   INVALID_OTP: "Otp invalid ",
   OTP_EXPIRED: " Youre OTP is Expired ",
+
+  //  main category
+  CATEGORY_EXIST: "Category already exist ",
+  CATEGORY_ADDED: "Category added successfull",
+
+  //sub cat
+  PARENT_CAT_NOT_FOUND: "Parent category not found",
+  INVALID_PARENT_CATEGORY: " Invalid Parent Category",
+  SUB_CATEGORY_EXIST: "SubCategory already exist in thise category",
+  SUB_CATEGORY_ADDED: "Subcategory added successfull within Category",
+
+  //sub cat delete
+  INVALID_SUB_CATEGORY: "Invalid SubCategory id",
+  SUB_CAT_NOT_FOUND: "Subcategory not found",
+  SUB_CAT_DELETE: "Subcategory deleted successfully",
+
+  // main cat delete
+  INVALID_CATEGORY: "Invalid Category id",
+  CAT_NOT_FOUND: "Category not found",
+  CAT_DELETE: " Category and it's sub category are deleted ",
+
+  // update main & sub cat
+  NOTHING_TO_UPDATE: "Nothing to update",
+  CAT_UPDETED: "Category updated",
+  SUB_CAT_UPDETED: " Sub category updated",
+
+  // product strings
+
+  REQUIRED_FIELDS: "Please provide all required fields",
+  ALREADY_EXIST: "Product  already exist ",
+  ADDED_SUCCESS: "Product added successfully",
+  INVALID_PRODUCT_ID: "Invalid Product ID",
+  NOT_FOUND: "Product not found",
+  PR_UPDATE_SUCCESS: "Product updated successfully",
+  PR_DELETED_SUCCESS: "Product delete successfully",
 };
