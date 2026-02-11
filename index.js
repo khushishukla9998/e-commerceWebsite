@@ -7,11 +7,11 @@ const path = require("path");
 const userIndex = require("./src/component/user/index");
 const adminIndex = require("./src/component/admin/index");
 // const passwordIndex = require("./src/component/forgot password/index")
- const appStrings  = require("../filestructure/src/component/utils/appString")
- const config = require("./config/dev.json")
+const appStrings = require("../filestructure/src/component/utils/appString")
+const config = require("./config/dev.json")
 
 const app = express();
-const port = 3001; 
+const port = 3001;
 app.use(cookieParser());
 app.use(
   cors({
@@ -20,6 +20,7 @@ app.use(
   }),
 );
 console.log("======== SERVER FILE LOADED=========")
+app.use("/api/webhook", express.raw({ type: "application/json" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -50,10 +51,10 @@ const connectDb = async () => {
 async function startServer() {
   try {
     app.listen(port, () => {
-      console.log( appStrings.SERVER_RUNNING +` ${port}`);
+      console.log(appStrings.SERVER_RUNNING + ` ${port}`);
     });
   } catch (err) {
-    console.log(err.message,appStrings.SERVER_ERROR );
+    console.log(err.message, appStrings.SERVER_ERROR);
   }
 }
 

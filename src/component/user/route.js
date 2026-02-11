@@ -4,6 +4,7 @@ const addcontroller = require("./controller/addressController");
 const authValidator = require("./validation");
 const passwordController = require("../user/controller/passwordController");
 const cartController = require("./controller/cartController");
+const orderController = require("./controller/orderController");
 
 console.log("Loading User Routes...");
 
@@ -114,15 +115,38 @@ module.exports = [
     method: "get",
     controller: cartController.getCart,
   },
-  // {
-  //   path: "/updateCartItem",
-  //   method: "put",
-  //   controller: cartController.updateCartItem,
-  // },
-  // {
-  //   path: "/removeCartItem/:productId",
-  //   method: "delete",
-  //   controller: cartController.removeCartItem,
-  // },
+  {
+    path: "/updateCartItem",
+    method: "put",
+    controller: cartController.updateCartItem,
+  },
+  {
+    path: "/removeCartItem/:productId",
+    method: "delete",
+    controller: cartController.removeCartItem,
+  },
+
+  //*******************=============ORDER=====================*************************
+  {
+    path: "/placeOrder",
+    method: "post",
+    controller: orderController.placeOrder,
+  },
+  {
+    path: "/cancelOrder",
+    method: "post",
+    controller: orderController.cancelOrder,
+  },
+  {
+    path: "/getInvoice",
+    method: "get",
+    controller: orderController.getInvoice,
+  },
+  {
+    path: "/webhook",
+    method: "post",
+    controller: orderController.stripeWebhook,
+    isPublic: true,
+  },
 
 ];
