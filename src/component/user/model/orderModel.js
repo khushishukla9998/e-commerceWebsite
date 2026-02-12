@@ -36,13 +36,13 @@ const orderSchema = new mongoose.Schema({
         required: true,
     },
     status: {
-        type: String,
+        type: Number,
         
         enum: ENUM.ORDER_STATUS,
         default: ENUM.ORDER_STATUS.PENDING,
     },
     paymentStatus: {
-        type: String,
+        type: Number,
         enum: ENUM.PAYMENT_STATUS,
         default: ENUM.PAYMENT_STATUS.PENDING,
     },

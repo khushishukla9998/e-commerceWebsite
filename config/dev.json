@@ -6,7 +6,7 @@
     "REFRESH_TOKEN_TIME": "30d",
     "EMAIL_SENDER": "khushishukla9998@gmail.com",
     "EMAIL_PASSWORD": "ctligzjdhcekoqar",
-    "STRIPE_SECRET_KEY": "sk_test_51SzVEbDIjmfeZO8uQ5qJ1NuO37EVVRxUz1Nf74FLq4lesjLZODOfeJgMYYvCwcEQOs2IXBeTHIkfr10IxmoLOXiK00B5YtwDjx",
+    "STRIPE_SECRET_KEY": "sk_test_51SzVE8DuimbRvcbhRnzSOHgwe3ROgl3rC8OxiBBpjtWD12SfpSuC7Vowwb7s1d3BQdZDw7sTTL8YdRRPkxS4XQSO00YtCGaT2J",
     "STRIPE_WEBHOOK_SECRET": "whsec_IpHKpY3TDdOx4SU9Ln8zmtxinHbgDovX",
     
     "CLIENT_URL": "http://localhost:3000"

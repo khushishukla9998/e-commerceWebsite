@@ -142,12 +142,12 @@ module.exports = [
     method: "get",
     controller: orderController.getInvoice,
   },
-  {
-    path: "/webhook",
-    method: "post",
-    controller: orderController.stripeWebhook,
-    isPublic: true,
-  },
+  // {
+  //   path: "/webhook",
+  //   method: "post",
+  //   controller: orderController.stripeWebhook,
+  //   isPublic: true,
+  // },
   {
     path: "/getUserOrders",
     method: "get",
