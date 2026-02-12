@@ -7,7 +7,7 @@ const path = require("path");
 const userIndex = require("./src/component/user/index");
 const adminIndex = require("./src/component/admin/index");
 // const passwordIndex = require("./src/component/forgot password/index")
-const appStrings = require("../filestructure/src/component/utils/appString")
+const appStrings = require("../e-commerceWebsite/src/component/utils/appString")
 const config = require("./config/dev.json")
 
 const app = express();

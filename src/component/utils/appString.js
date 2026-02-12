@@ -107,4 +107,21 @@ module.exports = {
   NOT_FOUND: "Product not found",
   PR_UPDATE_SUCCESS: "Product updated successfully",
   PR_DELETED_SUCCESS: "Product delete successfully",
+
+
+  // placed order
+ USER_NOT_AUTH:"User not authenticated",
+ INVALID_ADDRESS_ID:"Address ID is required",
+NOT_A_FOUND:"Address not found or does not belong to user",
+ EMPTY_CART: "Cart is empty! ADD item in cart",
+ NO_VALID_ITEMS:"No valid items in cart to place order",
+ STRIP_PAYMENT_ERROE: "Stripe Payment Error",
+ ORDER_PLACED_SUCCESS:"Order created Complete payment on client",
+
+
+ //cancel order
+ ORDER_ID_REQUIRED:"Order ID is required",
+  ORDER_NOT_FOUND:"Order not found",
+  ORDER_CAN_NOT_CANCLED: `Order cannot be cancelled because it is already`,
+  CANCELLED_SUCCESSS: "Order cancelled successfully",
 };

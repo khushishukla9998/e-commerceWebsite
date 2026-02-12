@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const ENUM = require("../../utils/enum")
 
 const orderSchema = new mongoose.Schema({
     userId: {
@@ -36,13 +37,14 @@ const orderSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ["pending", "success", "failed", "shipped", "delivered", "cancelled"],
-        default: "pending",
+        
+        enum: ENUM.ORDER_STATUS,
+        default: ENUM.ORDER_STATUS.PENDING,
     },
     paymentStatus: {
         type: String,
-        enum: ["pending", "success", "failed", "cancelled"],
-        default: "pending",
+        enum: ENUM.PAYMENT_STATUS,
+        default: ENUM.PAYMENT_STATUS.PENDING,
     },
     orderDate: {
         type: Date,
