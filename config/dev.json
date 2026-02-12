@@ -7,7 +7,7 @@
     "EMAIL_SENDER": "khushishukla9998@gmail.com",
     "EMAIL_PASSWORD": "ctligzjdhcekoqar",
     "STRIPE_SECRET_KEY": "sk_test_51SzVEbDIjmfeZO8uQ5qJ1NuO37EVVRxUz1Nf74FLq4lesjLZODOfeJgMYYvCwcEQOs2IXBeTHIkfr10IxmoLOXiK00B5YtwDjx",
-    "STRIPE_WEBHOOK_SECRET": "whsec_40f960eaa6ddb37658e12ca9f98c2ea326839b537b11e4d7cf72f6d68dd38a0a",
+    "STRIPE_WEBHOOK_SECRET": "whsec_IpHKpY3TDdOx4SU9Ln8zmtxinHbgDovX",
     
     "CLIENT_URL": "http://localhost:3000"
 }
