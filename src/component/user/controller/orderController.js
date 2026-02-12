@@ -57,48 +57,64 @@ const placeOrder = async (req, res) => {
             addressId,
             items: orderItems,
             totalPrice: totalPrice, // Use calculated or cart's total
-            status: "success", // Default as per request
+            status: "pending", // Default to pending
             paymentStatus: "pending",
             orderDate: new Date()
         });
 
-        // Create Stripe Checkout Session
-        const lineItems = orderItems.map(item => ({
-            price_data: {
+        // Create Stripe PaymentIntent
+        const { paymentMethodId } = req.body;
+        if (!paymentMethodId) {
+            return res.status(400).json({ success: false, message: "Payment Method ID is required for backend-only flow" });
+        }
+
+        let paymentIntent;
+        try {
+            paymentIntent = await stripe.paymentIntents.create({
+                amount: Math.round(totalPrice * 100),
                 currency: "usd",
-                product_data: {
-                    name: item.productName,
-                    images: item.image && item.image.length > 0 ? [item.image[0]] : [],
+                payment_method: paymentMethodId,
+                confirmation_method: "manual",
+                confirm: true,
+                description: `Order ${newOrder._id} for ${req.user.email}`,
+                automatic_payment_methods: {
+                    enabled: true,
+                    allow_redirects: "never",
                 },
-                unit_amount: Math.round(item.price * 100), // Stripe expects amount in cents
-            },
-            quantity: item.quantity,
-        }));
+            });
+        } catch (stripeErr) {
+            newOrder.status = "failed";
+            newOrder.paymentStatus = "failed";
+            await newOrder.save();
+            return res.status(400).json({ success: false, message: "Stripe Payment Error", error: stripeErr.message });
+        }
 
-        const session = await stripe.checkout.sessions.create({
-            payment_method_types: ["card"],
-            line_items: lineItems,
-            mode: "payment",
-            success_url: `${config.CLIENT_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${config.CLIENT_URL}/cancel`,
-            client_reference_id: newOrder._id.toString(),
-            customer_email: req.user.email,
-        });
+        newOrder.stripePaymentIntentId = paymentIntent.id;
 
-        newOrder.stripeSessionId = session.id;
+        // Handle immediate payment status and clear cart ONLY on success
+        if (paymentIntent.status === "succeeded") {
+            newOrder.paymentStatus = "success";
+            newOrder.status = "success";
+
+            // Clear Cart only if payment succeeded
+            cart.items = [];
+            cart.totalPrice = 0;
+            await cart.save();
+        } else if (paymentIntent.status === "requires_payment_method") {
+            newOrder.paymentStatus = "failed";
+            newOrder.status = "failed";
+        }
+
         await newOrder.save();
-
-        // Clear Cart
-        cart.items = [];
-        cart.totalPrice = 0;
-        await cart.save();
 
         return res.status(201).json({
             success: true,
-            message: "Order placed successfully",
+            message: paymentIntent.status === "succeeded" ? "Order placed successfully" : "Order placed but payment failed",
             data: {
                 order: newOrder,
-                stripeUrl: session.url
+                stripePaymentIntentId: paymentIntent.id,
+                clientSecret: paymentIntent.client_secret,
+                status: paymentIntent.status
             }
         });
 
@@ -132,7 +148,25 @@ const cancelOrder = async (req, res) => {
             });
         }
 
+        // Cancel Stripe PaymentIntent if it exists
+        if (order.stripePaymentIntentId) {
+            try {
+                // Fetch the payment intent to check its status first
+                const paymentIntent = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId);
+
+                // Only cancel if it's not already succeeded or cancelled
+                if (!["succeeded", "canceled"].includes(paymentIntent.status)) {
+                    await stripe.paymentIntents.cancel(order.stripePaymentIntentId);
+                    console.log(`Stripe PaymentIntent ${order.stripePaymentIntentId} cancelled.`);
+                }
+            } catch (stripeErr) {
+                console.error("Stripe Cancellation Error:", stripeErr);
+                // We continue to cancel the local order even if Stripe fails (e.g., if it's already succeeded according to Stripe)
+            }
+        }
+
         order.status = "cancelled";
+        order.paymentStatus = "cancelled";
         await order.save();
 
         return res.status(200).json({
@@ -148,14 +182,12 @@ const cancelOrder = async (req, res) => {
 
 const getInvoice = async (req, res) => {
     try {
-        let { page = 1, limit = 10, userId } = req.query;
+        let { page = 1, limit = 10 } = req.query;
+        const userId = req.user._id; // Enforce JWT User ID
         page = parseInt(page);
         limit = parseInt(limit);
 
-        const buildFilter = {};
-        if (userId) {
-            buildFilter.userId = userId;
-        }
+        const buildFilter = { userId };
 
         // Calculate Total Documents
         const totalDocs = await Order.countDocuments(buildFilter);
@@ -200,42 +232,130 @@ const stripeWebhook = async (req, res) => {
     const sig = req.headers["stripe-signature"];
     let event;
 
-    try {
-        event = stripe.webhooks.constructEvent(
-            req.body, // This must be the raw body
-            sig,
-            config.STRIPE_WEBHOOK_SECRET
-        );
-    } catch (err) {
-        console.error("Webhook Error:", err.message);
-        return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
-    // Handle the event
-    if (event.type === "checkout.session.completed") {
-        const session = event.data.object;
-
-        // Update Order status
-        const orderId = session.client_reference_id;
+    // Testing bypass for Postman (Strictly for development)
+    if (process.env.NODE_ENV !== "production" && req.headers["test-webhook"] === "true") {
+        event = req.body;
+        if (typeof event === "string") event = JSON.parse(event);
+    } else {
         try {
-            const order = await Order.findById(orderId);
-            if (order) {
-                order.paymentStatus = "paid";
-                order.stripePaymentIntentId = session.payment_intent;
-                await order.save();
-                console.log(`Order ${orderId} updated to paid`);
-            }
+            event = stripe.webhooks.constructEvent(
+                req.body, // This must be the raw body
+                sig,
+                config.STRIPE_WEBHOOK_SECRET
+            );
         } catch (err) {
-            console.error("Error updating order in webhook:", err);
+            console.error("Webhook Error:", err.message);
+            return res.status(400).send(`Webhook Error: ${err.message}`);
         }
     }
 
+    // Handle the event
+    try {
+        switch (event.type) {
+            case "payment_intent.succeeded": {
+                const paymentIntent = event.data.object;
+                const order = await Order.findOne({ stripePaymentIntentId: paymentIntent.id });
+                if (order && (order.paymentStatus !== "success" || order.status !== "success")) {
+                    order.paymentStatus = "success";
+                    order.status = "success";
+                    await order.save();
+
+                    // Clear user's cart on webhook success
+                    const cart = await Cart.findOne({ userId: order.userId });
+                    if (cart) {
+                        cart.items = [];
+                        cart.totalPrice = 0;
+                        await cart.save();
+                    }
+                    console.log(`Order ${order._id} updated and cart cleared via webhook`);
+                }
+                break;
+            }
+
+            case "payment_intent.payment_failed": {
+                const paymentIntent = event.data.object;
+                const order = await Order.findOne({ stripePaymentIntentId: paymentIntent.id });
+                if (order) {
+                    order.paymentStatus = "failed";
+                    order.status = "failed";
+                    await order.save();
+                    console.log(`Order ${order._id} updated to failed via webhook`);
+                }
+                break;
+            }
+
+            case "checkout.session.completed": {
+                const session = event.data.object;
+                const orderId = session.client_reference_id;
+                const order = await Order.findById(orderId);
+                if (order && (order.paymentStatus !== "success" || order.status !== "success")) {
+                    order.paymentStatus = "success";
+                    order.status = "success";
+                    order.stripePaymentIntentId = session.payment_intent;
+                    await order.save();
+
+                    // Clear user's cart on session success
+                    const cart = await Cart.findOne({ userId: order.userId });
+                    if (cart) {
+                        cart.items = [];
+                        cart.totalPrice = 0;
+                        await cart.save();
+                    }
+                    console.log(`Order ${orderId} updated and cart cleared via session webhook`);
+                }
+                break;
+            }
+
+            default:
+                console.log(`Unhandled event type ${event.type}`);
+        }
+    } catch (err) {
+        console.error("Error processing webhook switch:", err);
+        return res.status(500).json({ success: false, message: "Internal Server Error in Webhook" });
+    }
+
     res.json({ received: true });
+};
+
+const getUserOrders = async (req, res) => {
+    try {
+        const userId = req.user._id;
+
+        const orders = await Order.find({ userId })
+            .sort({ createdAt: -1 })
+            .populate("items.productId", "productName price images");
+
+        const groupedOrders = {
+            success: [],
+            failed: [],
+            cancelled: [],
+            pending: []
+        };
+
+        orders.forEach(order => {
+            if (groupedOrders[order.status]) {
+                groupedOrders[order.status].push(order);
+            } else {
+                // Fallback for any other statuses
+                if (!groupedOrders.pending) groupedOrders.pending = [];
+                groupedOrders.pending.push(order);
+            }
+        });
+
+        return res.status(200).json({
+            success: true,
+            data: groupedOrders
+        });
+
+    } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+    }
 };
 
 module.exports = {
     placeOrder,
     cancelOrder,
     getInvoice,
-    stripeWebhook
+    stripeWebhook,
+    getUserOrders
 };

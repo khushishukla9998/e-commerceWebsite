@@ -148,5 +148,10 @@ module.exports = [
     controller: orderController.stripeWebhook,
     isPublic: true,
   },
+  {
+    path: "/getUserOrders",
+    method: "get",
+    controller: orderController.getUserOrders,
+  },
 
 ];
