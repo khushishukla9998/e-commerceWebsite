@@ -26,7 +26,7 @@ const addProduct = async (req, res) => {
       );
     }
 
-   // Validate Category
+    // Validate Category
     const category = await Category.findById(categoryId);
     if (!category) {
       return commonUtils.sendErrorResponse(
@@ -87,6 +87,33 @@ const addProduct = async (req, res) => {
   }
 };
 
+// ============ Get Product By ID (Public/Admin) ============
+const getProductById = async (req, res) => {
+  try {
+    const { productId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return commonUtils.sendErrorResponse(req, res, appString.INVALID_PRODUCT_ID, null);
+    }
+
+    const product = await Product.findById(productId).populate("categoryId subCategoryId", "categoryName");
+
+    if (!product) {
+      return commonUtils.sendErrorResponse(req, res, appString.NOT_FOUND, null);
+    }
+
+    // Hide quantity for regular users, show for admins
+    const productData = product.toObject();
+    if (!req.admin) {
+      delete productData.quantity;
+    }
+
+    return commonUtils.sendSuccessResponse(req, res, appString.PRODUCTS_FETCHED, productData);
+  } catch (err) {
+    return commonUtils.sendErrorResponse(req, res, err.message, null);
+  }
+};
+
 // ============ List Products ============
 const listProduct = async (req, res) => {
   try {
@@ -140,35 +167,34 @@ const listProduct = async (req, res) => {
 
     // Project specific fields
     pipeline.push({
-     $project: {
-      productName: "$productName",
-      description: "$description",
-      price: "$price",
-      images: "$images",
-      status: "$status",
-      quantity: "$quantity",
-      
-      category: {
-        categoryName: "$category.categoryName",
-        categoryId: "$category._id"
-      },
+      $project: {
+        productName: "$productName",
+        description: "$description",
+        price: "$price",
+        images: "$images",
+        status: "$status",
+        quantity: "$quantity",
 
-      subCategory: {
-        subCategoryName: "$subCategory.categoryName",
-        subCategoryId: "$subCategory._id"
+        category: {
+          categoryName: "$category.categoryName",
+          categoryId: "$category._id"
+        },
+
+        subCategory: {
+          subCategoryName: "$subCategory.categoryName",
+          subCategoryId: "$subCategory._id"
+        }
       }
-    }
     });
 
     const products = await Product.aggregate(pipeline);
 
-    return res.status(200).json({
-      success: true,
+    return commonUtils.sendSuccessResponse(req, res, appString.PRODUCTS_FETCHED, {
       count: products.length,
-      data: products,
+      products,
     });
   } catch (err) {
-    return commonUtils.sendErrorResponse(req, res, err.message, null);
+    return commonUtils.sendErrorResponse(req, res, err.message, null, 500);
   }
 };
 
@@ -203,7 +229,7 @@ const updateProduct = async (req, res) => {
       product,
     );
   } catch (err) {
-    return commonUtils.sendSuccessResponse(req, res, err.message, null);
+    return commonUtils.sendErrorResponse(req, res, err.message, null, 500);
   }
 };
 
@@ -241,6 +267,7 @@ const deleteProduct = async (req, res) => {
 module.exports = {
   addProduct,
   listProduct,
+  getProductById,
   updateProduct,
   deleteProduct,
 };

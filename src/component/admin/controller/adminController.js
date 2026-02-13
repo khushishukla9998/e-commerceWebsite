@@ -10,7 +10,6 @@ const redisClient = require("../../utils/redisClient");
 
 
 //=================register Admin ============================//
-console.log("Body in adminLogin:");
 const registerAdmin = async function (req, res) {
   try {
     const { name, email, password } = req.body;
@@ -312,6 +311,7 @@ const getAlluser = async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      message: appStrings.FETCH_SUCCESS,
       totalUsers: metadata.totalItems,
       totalPages,
       currentPage: metadata.currentPage,
@@ -433,7 +433,7 @@ const getAllUsersWithDetails = async (req, res) => {
       },
     ]);
 
-    return commonUtils.sendSuccessResponse(req, res, "Users fetched successfully", users);
+    return commonUtils.sendSuccessResponse(req, res, appStrings.USERS_FETCHED, users);
 
   } catch (err) {
     console.error("Error in getAllUsersWithDetails:", err);

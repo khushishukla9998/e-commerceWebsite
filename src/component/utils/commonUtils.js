@@ -32,7 +32,7 @@ const appStrings = require("./appString")
 //     const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
 //     let encrypted = cipher.update(text);
 //     encrypted = Buffer.concat([encrypted, cipher.final()]);
-   
+
 //     return iv.toString('hex') + ':' + encrypted.toString('hex');
 // }
 
@@ -88,7 +88,7 @@ function storeRefreshTokenInCookie(res, name, tokenValue) {
 
 
 //========================route handler=====================================
-const routeArray = (array_, prefix,isAdmin=false) => {
+const routeArray = (array_, prefix, isAdmin = false) => {
   array_.forEach((route) => {
     const method = route.method;
     const path = route.path;
@@ -100,21 +100,21 @@ const routeArray = (array_, prefix,isAdmin=false) => {
     let middlewares = [];
 
     const isPublic = route.isPublic === undefined ? false : route.isPublic;
-       // const isAdmin = route.isAdmin === undefined ? false : route.isAdmin;
-          //const isUser = route.isUser === undefined ? false : route.isUser;
+    // const isAdmin = route.isAdmin === undefined ? false : route.isAdmin;
+    //const isUser = route.isUser === undefined ? false : route.isUser;
     // Middleware to log the request IP and userId
 
     if (!isPublic) {
       middlewares.push(middelwareIndex.verifyAcessToken);
-        if (isAdmin) {
-      middlewares.push(checkAdmin);
-    }
-    else {
-      middlewares.push(checkUser);
-    }
+      if (isAdmin) {
+        middlewares.push(checkAdmin);
+      }
+      else {
+        middlewares.push(checkUser);
+      }
     }
 
-  
+
 
     if (validation) {
       if (Array.isArray(validation)) {
@@ -133,44 +133,44 @@ const routeArray = (array_, prefix,isAdmin=false) => {
 const checkAdmin = async (req, res, next) => {
 
   const id = req.userId
- 
-        const user = await User.findById(id);
-        if (user) {
-          return res.status(400).json({
-            success: false,
-            message: appStrings.USER_NOT_AUTHORIZED,
-          });
-        }
-        const admin = await Admin.findById(id);
-        if (!admin) {
-          return res.status(400).json({
-            success: false,
-            message: appStrings.USER_NOT_AUTHORIZED,
-          });
-        }
-        req.admin = admin;
-        next();
-      }
-const checkUser = async (req, res, next) => {
-   const id = req.userId
-        const admin = await Admin.findById(id);
-        if (admin) {
-          return res.status(400).json({
-            success: false,
-            message: appStrings.ADMIN_NOT_AUTHORIZED,
-          });
-        }
 
-           const user = await User.findById(id);
-        if (!user) {
-          return res.status(400).json({
-            success: false,
-            message: appStrings.ADMIN_NOT_AUTHORIZED,
-          });
-        }
-        req.user = user;
-        next();
-      }
+  const user = await User.findById(id);
+  if (user) {
+    return res.status(400).json({
+      success: false,
+      message: appStrings.USER_NOT_AUTHORIZED,
+    });
+  }
+  const admin = await Admin.findById(id);
+  if (!admin) {
+    return res.status(400).json({
+      success: false,
+      message: appStrings.USER_NOT_AUTHORIZED,
+    });
+  }
+  req.admin = admin;
+  next();
+}
+const checkUser = async (req, res, next) => {
+  const id = req.userId
+  const admin = await Admin.findById(id);
+  if (admin) {
+    return res.status(400).json({
+      success: false,
+      message: appStrings.ADMIN_NOT_AUTHORIZED,
+    });
+  }
+
+  const user = await User.findById(id);
+  if (!user) {
+    return res.status(400).json({
+      success: false,
+      message: appStrings.ADMIN_NOT_AUTHORIZED,
+    });
+  }
+  req.user = user;
+  next();
+}
 module.exports = {
   routeArray,
   sendSuccessResponse,

@@ -20,7 +20,7 @@ const Cart = require("../e-commerceWebsite/src/component/user/model/cartModel")
 const app = express();
 const port = 3001;
 
-app.post("/api/webhook",bodyparser.raw({ type: "application/json" }),
+app.post("/api/webhook", bodyparser.raw({ type: "application/json" }),
   async (req, res) => {
     console.log("hit webhook");
 
@@ -64,7 +64,7 @@ app.post("/api/webhook",bodyparser.raw({ type: "application/json" }),
           break;
         }
 
-        
+
         case "payment_intent.requires_action":
         case "payment_intent.processing": {
           const paymentIntent = event.data.object;
@@ -106,6 +106,15 @@ app.post("/api/webhook",bodyparser.raw({ type: "application/json" }),
             await order.save();
             console.log("after update:", order.paymentStatus, order.status);
 
+            // Decrement stock for each item in the order
+            const Product = require("./src/component/admin/model/productModel");
+            for (const item of order.items) {
+              await Product.findByIdAndUpdate(item.productId, {
+                $inc: { quantity: -item.quantity }
+              });
+              console.log(`Stock decremented for product: ${item.productId} by ${item.quantity}`);
+            }
+
             const cart = await Cart.findOne({ userId: order.userId });
             console.log("cart found:", !!cart);
             if (cart) {
@@ -130,7 +139,7 @@ app.post("/api/webhook",bodyparser.raw({ type: "application/json" }),
           if (order) {
             console.log("before update:", order.paymentStatus, order.status);
 
-          
+
             order.paymentStatus = ENUM.PAYMENT_STATUS.FAILED;
             order.status = ENUM.ORDER_STATUS.FAILED;
 
@@ -168,7 +177,7 @@ app.post("/api/webhook",bodyparser.raw({ type: "application/json" }),
         .json({ success: false, message: "Internal Server Error in Webhook" });
     }
 
-  
+
     return res.json({ received: true });
   }
 );

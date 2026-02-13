@@ -110,18 +110,26 @@ module.exports = {
 
 
   // placed order
- USER_NOT_AUTH:"User not authenticated",
- INVALID_ADDRESS_ID:"Address ID is required",
-NOT_A_FOUND:"Address not found or does not belong to user",
- EMPTY_CART: "Cart is empty! ADD item in cart",
- NO_VALID_ITEMS:"No valid items in cart to place order",
- STRIP_PAYMENT_ERROE: "Stripe Payment Error",
- ORDER_PLACED_SUCCESS:"Order created Complete payment on client",
+  USER_NOT_AUTH: "User not authenticated",
+  INVALID_ADDRESS_ID: "Address ID is required",
+  NOT_A_FOUND: "Address not found or does not belong to user",
+  EMPTY_CART: "Cart is empty! ADD item in cart",
+  NO_VALID_ITEMS: "No valid items in cart to place order",
+  STRIP_PAYMENT_ERROE: "Stripe Payment Error",
+  ORDER_PLACED_SUCCESS: "Order created Complete payment on client",
 
 
- //cancel order
- ORDER_ID_REQUIRED:"Order ID is required",
-  ORDER_NOT_FOUND:"Order not found",
+  //cancel order
+  ORDER_ID_REQUIRED: "Order ID is required",
+  ORDER_NOT_FOUND: "Order not found",
   ORDER_CAN_NOT_CANCLED: `Order cannot be cancelled because it is already`,
   CANCELLED_SUCCESSS: "Order cancelled successfully",
+  PRODUCT_OUT_OF_STOCK: "product sold out ,item is out of stock",
+  INVALID_USER_ID: "Invalid User ID",
+  PRODUCTS_FETCHED: "Products fetched successfully",
+  USERS_FETCHED: "Users fetched successfully",
+  PRODUCT_AVAILABLE: "product is not available",
+  ALREADY_IN_CART: "thise product is already add in your cart if you want increase quantity please update qty",
+  PRODUCTS_FETCHED: "Products fetched successfully",
+  ADDRESS_FETCHED_SUCCESS: "Address fetched successfully",
 };

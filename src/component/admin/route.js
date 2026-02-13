@@ -3,8 +3,6 @@ const adminController = require("./controller/adminController");
 const categoryController = require("./controller/categoryController");
 const productController = require("./controller/productController");
 
-console.log("Loading User Routes...");
-
 module.exports = [
   //   {
   //     path: "/refresh-token",
@@ -113,5 +111,9 @@ module.exports = [
     method: "delete",
     controller: productController.deleteProduct,
   },
-
+  {
+    path: "/getProduct/:productId",
+    method: "get",
+    controller: productController.getProductById,
+  },
 ];

@@ -71,6 +71,16 @@ const placeOrder = async (req, res) => {
 
       const product = item.productId;
 
+      // Check stock before placing order
+      if (product.quantity < item.quantity) {
+        return commonUtils.sendErrorResponse(
+          req,
+          res,
+          `${product.productName}: ${appString.PRODUCT_OUT_OF_STOCK}`,
+          null,
+        );
+      }
+
       orderItems.push({
         productId: product._id,
         productName: product.productName,
@@ -109,7 +119,7 @@ const placeOrder = async (req, res) => {
     let paymentIntent;
     try {
       paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(totalPrice * 100), 
+        amount: Math.round(totalPrice * 100),
         currency: "inr",
         description: `Order ${newOrder._id} for ${req.user.email}`,
         automatic_payment_methods: {
@@ -221,7 +231,7 @@ const cancelOrder = async (req, res) => {
       order,
     );
   } catch (err) {
-    return commonUtils.sendErrorResponse(req, res, err.message, nu);
+    return commonUtils.sendErrorResponse(req, res, err.message, null, 500);
   }
 };
 
@@ -252,9 +262,9 @@ const getInvoice = async (req, res) => {
       .limit(limit)
       .populate("userId", "name email") // Optionally populate user details
       .populate("items.productId", "productName price image");
-    return res.status(200).json({
-      success: true,
-      data: orders,
+
+    return commonUtils.sendSuccessResponse(req, res, appString.FETCH_SUCCESS, {
+      orders,
       pagination: {
         totalDocs,
         totalPages,
@@ -264,7 +274,7 @@ const getInvoice = async (req, res) => {
       grandTotal,
     });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return commonUtils.sendErrorResponse(req, res, err.message, null, 500);
   }
 };
 
@@ -297,12 +307,9 @@ const getUserOrders = async (req, res) => {
       }
     });
 
-    return res.status(200).json({
-      success: true,
-      data: groupedOrders,
-    });
+    return commonUtils.sendSuccessResponse(req, res, appString.FETCH_SUCCESS, groupedOrders);
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return commonUtils.sendErrorResponse(req, res, err.message, null, 500);
   }
 };
 

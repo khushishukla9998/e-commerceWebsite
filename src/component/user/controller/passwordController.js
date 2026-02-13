@@ -27,10 +27,7 @@ const fotgotPassword = async (req, res) => {
 
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: appString.USER_NOT_FOUND,
-      });
+      return commonUtils.sendErrorResponse(req, res, appString.USER_NOT_FOUND, null, 400);
     }
 
     await Otp.deleteMany({ email: email.toLowerCase() });
@@ -71,16 +68,9 @@ const fotgotPassword = async (req, res) => {
       //  `<h3> YOUR OTP is: ${otp}</h3> <p>Your OTP is valid for 10 min</p>`,
     });
 
-    return res.status(200).json({
-      success: true,
-      message: appString.OTP_SENT_SUCCESS,
-    });
+    return commonUtils.sendSuccessResponse(req, res, appString.OTP_SENT_SUCCESS);
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: appString.OTP_SEND_FAILED,
-      error: err.message,
-    });
+    return commonUtils.sendErrorResponse(req, res, appString.OTP_SEND_FAILED, { error: err.message }, 500);
   }
 };
 
@@ -91,18 +81,12 @@ const resetPassword = async (req, res) => {
     const normalizedEmail = email.toLowerCase();
 
     if (newPassword !== confirmPassword) {
-      return res.status(400).json({
-        success: false,
-        message: appString.PASSWORD_MISMATCH,
-      });
+      return commonUtils.sendErrorResponse(req, res, appString.PASSWORD_MISMATCH, null, 400);
     }
 
 
-    if(newPassword === oldPassword){
-      return res.status(400).json({
-        success: false,
-        message: appString.PASSWORD_MATCH,
-      })
+    if (newPassword === oldPassword) {
+      return commonUtils.sendErrorResponse(req, res, appString.PASSWORD_MATCH, null, 400);
     }
 
 
@@ -115,10 +99,7 @@ const resetPassword = async (req, res) => {
 
 
     if (!otpData) {
-      return res.status(400).json({
-        success: false,
-        message: appString.OTP_NOT_VERFIFIED,
-      });
+      return commonUtils.sendErrorResponse(req, res, appString.OTP_NOT_VERFIFIED, null, 400);
     }
     const user = await User.findById(otpData.userId);
     if (!user) {
@@ -131,10 +112,7 @@ const resetPassword = async (req, res) => {
     // Verify old password
     const isMatch = await bcrypt.compare(oldPassword, user.password);
     if (!isMatch) {
-      return res.status(400).json({
-        success: false,
-        message: appString.INCORRECT_OLD_PASSWORD
-      });
+      return commonUtils.sendErrorResponse(req, res, appString.INCORRECT_OLD_PASSWORD, null, 400);
     }
 
     // Hash new password
@@ -147,16 +125,9 @@ const resetPassword = async (req, res) => {
     // delete used otp
     await Otp.deleteOne({ _id: otpData._id });
 
-    return res.status(200).json({
-      success: true,
-      message: appString.PAASWORD_RESET_SUCCESS,
-    });
+    return commonUtils.sendSuccessResponse(req, res, appString.PAASWORD_RESET_SUCCESS);
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: appString.PASSWORD_RESET_FAILED,
-      error: err.message,
-    });
+    return commonUtils.sendErrorResponse(req, res, appString.PASSWORD_RESET_FAILED, { error: err.message }, 500);
   }
 };
 
@@ -164,36 +135,24 @@ const resetPassword = async (req, res) => {
 
 const verifyOtp = async (req, res) => {
   try {
-    const { email, otp } = req.body;          
+    const { email, otp } = req.body;
     const normalizedEmail = email.toLowerCase();
 
     const otpData = await Otp.findOne({ email: normalizedEmail, otp });
 
     if (!otpData) {
-      return res.status(400).json({
-        success: false,
-        message: appString.INVALID_OTP
-      });
+      return commonUtils.sendErrorResponse(req, res, appString.INVALID_OTP, null, 400);
     }
 
     if (otpData.expiry < Date.now()) {
-      return res.status(400).json({
-        success: false,
-        message: appString.OTP_EXPIRED
-      });
+      return commonUtils.sendErrorResponse(req, res, appString.OTP_EXPIRED, null, 400);
     }
 
     otpData.isVerified = true;
     await otpData.save();
-    return res.status(200).json({
-      success: true,
-      message: appString.OTP_VERIFIED
-    });
+    return commonUtils.sendSuccessResponse(req, res, appString.OTP_VERIFIED);
   } catch (err) {
-    return res.status(400).json({
-      success: false,
-      error: err.message,
-    });
+    return commonUtils.sendErrorResponse(req, res, err.message, null, 500);
   }
 };
 

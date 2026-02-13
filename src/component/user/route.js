@@ -5,8 +5,7 @@ const authValidator = require("./validation");
 const passwordController = require("../user/controller/passwordController");
 const cartController = require("./controller/cartController");
 const orderController = require("./controller/orderController");
-
-console.log("Loading User Routes...");
+const productController = require("../admin/controller/productController");
 
 module.exports = [
   //*******************=============USER REGISTRATION===============*************************
@@ -153,7 +152,10 @@ module.exports = [
     method: "get",
     controller: orderController.getUserOrders,
   },
-
-  
-
+  {
+    path: "/getProduct/:productId",
+    method: "get",
+    controller: productController.getProductById,
+    isPublic: true, // Allow browsing products without login? Or maybe semi-public. The user said 'not user in product controller by thier product id'.
+  },
 ];

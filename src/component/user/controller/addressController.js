@@ -73,7 +73,7 @@ exports.getAddress = async function (req, res) {
         req,
         res,
         appStrings.ADDRESS_ERROR,
-      appStrings.INVALID_ID,
+        appStrings.INVALID_ID,
         400
       );
     }
@@ -104,7 +104,7 @@ exports.getAddress = async function (req, res) {
           street: "$street",
           city: "$city",
           state: "$state",
-          zipCode:"$zipCode",
+          zipCode: "$zipCode",
           isPrimary: "$isPrimary",
           userId: "$userId",
           "userName": "$userDetails.name",
@@ -113,7 +113,7 @@ exports.getAddress = async function (req, res) {
       },
     ]);
 
-    return commonUtils.sendSuccessResponse(req, res, "Address Fetched Successfully", address);
+    return commonUtils.sendSuccessResponse(req, res, appStrings.ADDRESS_FETCHED_SUCCESS, address);
 
   } catch (err) {
     console.error(err);

@@ -60,12 +60,13 @@ function generateRefreshToken(payload) {
 
 
 async function verifyAcessToken(req, res, next) {
+  const commonUtils = require("../component/utils/commonUtils")
   try {
     const token = req.cookies.accessToken;
     console.log(token);
 
     if (!token) {
-      return res.status(401).json({ message: appStrings.TOKEN_NOT_PROVIDED });
+      return commonUtils.sendErrorResponse(req, res, appStrings.TOKEN_NOT_PROVIDED, null, 401);
     }
 
     const decode = jwt.verify(token, config.ACCESS_TOKEN_SECRET);
@@ -81,9 +82,7 @@ async function verifyAcessToken(req, res, next) {
     const tokenInRedis = await redisClient.get(redisKey);
 
     if (!tokenInRedis || tokenInRedis !== token) {
-      return res
-        .status(401)
-        .json({ message: appStrings.INVALID_TOKEN_IN_REDISH });
+      return commonUtils.sendErrorResponse(req, res, appStrings.INVALID_TOKEN_IN_REDISH, null, 401);
     }
 
     next();
@@ -97,10 +96,10 @@ async function verifyAcessToken(req, res, next) {
           if (decoded?.id) {
             await redisClient.del(`user:access:${decoded.id}`);
           }
-        } catch (_) {}
+        } catch (_) { }
       }
     }
-    res.status(400).json({ message: appStrings.INVALID_TOKEN });
+    return commonUtils.sendErrorResponse(req, res, appStrings.INVALID_TOKEN, null, 400);
   }
 }
 

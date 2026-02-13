@@ -114,7 +114,7 @@ const login = async function (req, res) {
 
     // if password is not match give the response and reject the request
     if (!match) {
-      return commonUtils.sendErrorResponse(res, appStrings.WRONG_PASSWORD);
+      return commonUtils.sendErrorResponse(req, res, appStrings.WRONG_PASSWORD);
     }
 
     // generate the token
@@ -161,7 +161,7 @@ async function getprofile(req, res) {
     const userId = req.headers.id;
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Invalid User ID" });
+      return commonUtils.sendErrorResponse(req, res, appStrings.INVALID_USER_ID, null, 400);
     }
 
     const userProfile = await User.aggregate([
@@ -173,7 +173,7 @@ async function getprofile(req, res) {
       },
       {
         $lookup: {
-          from: "addresses", 
+          from: "addresses",
           let: { userId: "$_id" },
           pipeline: [
             {
@@ -186,7 +186,7 @@ async function getprofile(req, res) {
                 }
               }
             },
-            { $project: { _id: 0, street: 1, city: 1, state: 1, zipCode: 1 } } 
+            { $project: { _id: 0, street: 1, city: 1, state: 1, zipCode: 1 } }
           ],
           as: "primaryAddress"
         }
@@ -210,7 +210,7 @@ async function getprofile(req, res) {
     ]);
 
     if (!userProfile || userProfile.length === 0) {
-      return res.json({ message: appStrings.USER_NOT_FOUND });
+      return commonUtils.sendErrorResponse(req, res, appStrings.USER_NOT_FOUND, null, 404);
     }
 
     const userData = userProfile[0];
@@ -219,12 +219,9 @@ async function getprofile(req, res) {
       userData.primaryAddress = appStrings.PRIMERY_ADSRESS_NOT_FOUND;
     }
 
-    res.json({
-      message: appStrings.USER_PROFILE,
-      user: userData,
-    });
+    return commonUtils.sendSuccessResponse(req, res, appStrings.USER_PROFILE, userData);
   } catch (err) {
-    res.json({ message: appStrings.PROFILE_ERROR, err: err.message });
+    return commonUtils.sendErrorResponse(req, res, appStrings.PROFILE_ERROR, { error: err.message }, 500);
   }
 }
 
@@ -236,9 +233,9 @@ async function deletuser(req, res) {
       status: ENUM.USER_STATUS.INACTIVE,
     });
 
-    res.json({ message: appStrings.DELETE_SUCCSESS });
+    return commonUtils.sendSuccessResponse(req, res, appStrings.DELETE_SUCCSESS);
   } catch (err) {
-    res.json({ message: appStrings.DELETE_ERROR, err: err.message });
+    return commonUtils.sendErrorResponse(req, res, appStrings.DELETE_ERROR, { error: err.message }, 500);
   }
 }
 
@@ -338,24 +335,13 @@ const multered = (req, res, next) => {
 
     upload(req, res, (err) => {
       if (err instanceof multer.MulterError) {
-        return res.status(400).json({
-          success: false,
-          message: appStrings.UPLOAD_MULTER_ERROR,
-          error: err.message,
-        });
+        return commonUtils.sendErrorResponse(req, res, appStrings.UPLOAD_MULTER_ERROR, { error: err.message }, 400);
       } else if (err) {
-        return res.status(400).json({
-          success: false,
-          message: appStrings.UPLOAD_ERROR,
-          error: err.message,
-        });
+        return commonUtils.sendErrorResponse(req, res, appStrings.UPLOAD_ERROR, { error: err.message }, 400);
       }
 
       if (!req.files || req.files.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: appStrings.UOLOAD_MESSAGE,
-        });
+        return commonUtils.sendErrorResponse(req, res, appStrings.UOLOAD_MESSAGE, null, 400);
       }
 
       // only thise type of fle or image can be uploaded
@@ -364,18 +350,12 @@ const multered = (req, res, next) => {
       for (const file of req.files) {
         if (!allowedTypes.includes(file.mimetype)) {
           fs.unlinkSync(file.path);
-          return res.status(400).json({
-            success: false,
-            error: appStrings.UPLOAD_VALIDATION,
-          });
+          return commonUtils.sendErrorResponse(req, res, appStrings.UPLOAD_VALIDATION, null, 400);
         }
         // check the fileSize
         if (file.size > 5 * 1024 * 1024) {
           fs.unlinkSync(file.path);
-          return res.status(400).json({
-            success: false,
-            error: appStrings.UPLOAD_LIMIT,
-          });
+          return commonUtils.sendErrorResponse(req, res, appStrings.UPLOAD_LIMIT, null, 400);
         }
       }
 
@@ -385,17 +365,10 @@ const multered = (req, res, next) => {
         originalname: file.originalname,
       }));
 
-      return res.status(200).json({
-        success: true,
-        message: appStrings.UPLOAD_SUCCESS,
-        data: files,
-      });
+      return commonUtils.sendSuccessResponse(req, res, appStrings.UPLOAD_SUCCESS, files);
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return commonUtils.sendErrorResponse(req, res, error.message, null, 500);
   }
 };
 
@@ -406,7 +379,7 @@ const refreshAccessToken = async (req, res) => {
     console.log('refreshToken cookie:', refreshToken);
 
     if (!refreshToken) {
-      return res.status(401).json({ message: appStrings.REFRESH_TOKEN_MISSING });
+      return commonUtils.sendErrorResponse(req, res, appStrings.REFRESH_TOKEN_MISSING, null, 401);
     }
 
     const decoded = token.verifyRefreshToken(refreshToken);
@@ -426,23 +399,15 @@ const refreshAccessToken = async (req, res) => {
       newAccessToken
     );
 
-    return res.status(200).json({
-      message: appStrings.ACCESS_TOKEN_REFRESHED,
-      accessToken: newAccessToken
-    });
+    return commonUtils.sendSuccessResponse(req, res, appStrings.ACCESS_TOKEN_REFRESHED, { accessToken: newAccessToken });
   } catch (err) {
     console.error('refreshAccessToken error:', err);
 
     if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        message: appStrings.REFRESH_TOKEN_EXPIRE
-      });
+      return commonUtils.sendErrorResponse(req, res, appStrings.REFRESH_TOKEN_EXPIRE, null, 401);
     }
 
-    return res.status(401).json({
-      message: appStrings.INVALID_REFRESH_TOKEN,
-      error: err.message
-    });
+    return commonUtils.sendErrorResponse(req, res, appStrings.INVALID_REFRESH_TOKEN, { error: err.message }, 401);
   }
 };
 

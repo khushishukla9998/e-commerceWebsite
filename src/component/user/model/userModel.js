@@ -22,16 +22,16 @@ const userSchema = mongoose.Schema({
         type: String,
     },
     status: {
-        type: String,
+        type: Number,
         default: ENUM.USER_STATUS.ACTIVE
     },
     isDeleted: {
         type: Number,
         default: ENUM.DELETE_STATUS.NOT_DELETE
     },
-  deletedBy:{
-    type:mongoose.Types.ObjectId
-  }
+    deletedBy: {
+        type: mongoose.Types.ObjectId
+    }
 
 });
 

@@ -1,4 +1,3 @@
-const { CANCELLED } = require("node:dns");
 
 module.exports = {
   //user status
@@ -20,7 +19,7 @@ module.exports = {
     SUCCESS: 2,
     CANCELLED: 3,
     SHIPED: 4,
-    DELIVERD:5
+    DELIVERD: 5
   },
 
   PAYMENT_STATUS: {

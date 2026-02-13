@@ -18,16 +18,16 @@ const adminSchema = mongoose.Schema({
         required: true,
     },
     status: {
-        type: String,
+        type: Number,
         default: ENUM.USER_STATUS.ACTIVE
     },
     isDeleted: {
-        type: Boolean,
+        type: Number,
         default: ENUM.DELETE_STATUS.NOT_DELETE
     },
 
 
 });
 
-module.exports =  mongoose.model("Admin", adminSchema);;
+module.exports = mongoose.model("Admin", adminSchema);;
 
