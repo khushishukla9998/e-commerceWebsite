@@ -9,5 +9,9 @@
     "STRIPE_SECRET_KEY": "sk_test_51SzVE8DuimbRvcbhRnzSOHgwe3ROgl3rC8OxiBBpjtWD12SfpSuC7Vowwb7s1d3BQdZDw7sTTL8YdRRPkxS4XQSO00YtCGaT2J",
     "STRIPE_WEBHOOK_SECRET": "whsec_IpHKpY3TDdOx4SU9Ln8zmtxinHbgDovX",
     
-    "CLIENT_URL": "http://localhost:3000"
+    "CLIENT_URL": "http://localhost:3000",
+    "RAZORPAY_KEY_ID":"rzp_test_SFWXjfHgxXnfwR",
+     "RAZORPAY_SECRETE_KEY":"3N39KtlCf11RBbHiDOb8knUl",
+     "RAZORPAY_WEBHOOK_SECRET":"BwnKFf_Um4ss_3r"
+
 }

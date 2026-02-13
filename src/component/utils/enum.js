@@ -1,4 +1,3 @@
-
 module.exports = {
   //user status
   USER_STATUS: {
@@ -19,7 +18,7 @@ module.exports = {
     SUCCESS: 2,
     CANCELLED: 3,
     SHIPED: 4,
-    DELIVERD: 5
+    DELIVERD: 5,
   },
 
   PAYMENT_STATUS: {
@@ -27,5 +26,11 @@ module.exports = {
     FAILED: 1,
     SUCCESS: 2,
     CANCELLED: 3,
+  },
+
+  PAYMENT_METHOD: {
+    STRIPE: 1,
+    RAZOR_PAY: 2,
+    COD: 3,
   },
 };

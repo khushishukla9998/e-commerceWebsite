@@ -3,7 +3,7 @@ module.exports = {
   REGISTRATION_FAILED: "Registration failed!",
   REGISTRATION_SUCCESS: "User registrartion successfull",
   LOGIN_SUCCESS: "Login successsfull",
-  LOGIN_FAILED: "Login successsfull",
+  LOGIN_FAILED: "Login unsuccesssfull",
   USER_NOT_FOUND: "User not Found",
   WRONG_PASSWORD: "Password is invalid!",
   TOKEN_EXPIRED: "Token Expired!",
@@ -108,7 +108,6 @@ module.exports = {
   PR_UPDATE_SUCCESS: "Product updated successfully",
   PR_DELETED_SUCCESS: "Product delete successfully",
 
-
   // placed order
   USER_NOT_AUTH: "User not authenticated",
   INVALID_ADDRESS_ID: "Address ID is required",
@@ -117,7 +116,6 @@ module.exports = {
   NO_VALID_ITEMS: "No valid items in cart to place order",
   STRIP_PAYMENT_ERROE: "Stripe Payment Error",
   ORDER_PLACED_SUCCESS: "Order created Complete payment on client",
-
 
   //cancel order
   ORDER_ID_REQUIRED: "Order ID is required",
@@ -129,7 +127,12 @@ module.exports = {
   PRODUCTS_FETCHED: "Products fetched successfully",
   USERS_FETCHED: "Users fetched successfully",
   PRODUCT_AVAILABLE: "product is not available",
-  ALREADY_IN_CART: "thise product is already add in your cart if you want increase quantity please update qty",
+  ALREADY_IN_CART:
+    "thise product is already add in your cart if you want increase quantity please update qty",
   PRODUCTS_FETCHED: "Products fetched successfully",
   ADDRESS_FETCHED_SUCCESS: "Address fetched successfully",
+
+  INVALID_PAYMENT_METHOD: "Invalid payment method",
+  PAYMENT_METHOD_CREATED: " Payment method updated",
+  METHOD_FAILED:"Payment method not configured by admin "
 };

@@ -7,7 +7,11 @@ const appStrings = require("../../utils/appString");
 const commonUtils = require("../../utils/commonUtils");
 const User = require("../../user/model/userModel");
 const redisClient = require("../../utils/redisClient");
-
+const Setting = require("../model/settingModel");
+const appString = require("../../utils/appString");
+// const secre=BwnKFf_Um4ss_3r;
+// const testapi =rzp_test_SFWXjfHgxXnfwR,
+// const test_key_secret = 3N39KtlCf11RBbHiDOb8knUl;
 
 //=================register Admin ============================//
 const registerAdmin = async function (req, res) {
@@ -223,8 +227,6 @@ const adminLogin = async function (req, res) {
 //   }
 // };
 
-
-
 //=============================USER LIST API==================================
 
 const getAlluser = async (req, res) => {
@@ -387,11 +389,6 @@ const updateUserStatus = async (req, res) => {
   }
 };
 
-
-
-
-
-
 //==============GET ALL USERS WITH DETAILS (CART & ADDRESS) =============================
 const getAllUsersWithDetails = async (req, res) => {
   try {
@@ -428,20 +425,66 @@ const getAllUsersWithDetails = async (req, res) => {
           status: 1,
           address: 1,
           // Flatten cart array to object (since 1 user = 1 cart)
-          cart: { $arrayElemAt: ["$cartData", 0] }
+          cart: { $arrayElemAt: ["$cartData", 0] },
         },
       },
     ]);
 
-    return commonUtils.sendSuccessResponse(req, res, appStrings.USERS_FETCHED, users);
-
+    return commonUtils.sendSuccessResponse(
+      req,
+      res,
+      appStrings.USERS_FETCHED,
+      users,
+    );
   } catch (err) {
     console.error("Error in getAllUsersWithDetails:", err);
-    return commonUtils.sendErrorResponse(req, res, appStrings.SERVER_ERROR, { error: err.message }, 500);
+    return commonUtils.sendErrorResponse(
+      req,
+      res,
+      appStrings.SERVER_ERROR,
+      { error: err.message },
+      500,
+    );
   }
 };
 
-module.exports = { registerAdmin, adminLogin, getAlluser, updateUserStatus, getAllUsersWithDetails };
+//==========payment method setting=============
+const setPaymentMethodd = async (req, res) => {
+  try {
+    const { paymentMethod } = req.body;
+    if (!paymentMethod) {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        appStrings.INVALID_PAYMENT_METHOD,
+      );
+    }
+    let setting = await Setting.findOne();
+    if (!setting) {
+      setting = await Setting.create({ paymentMethod });
+    } else {
+      setting.paymentMethod = paymentMethod;
+      await setting.save();
+    }
+    return commonUtils.sendSuccessResponse(
+      req,
+      res,
+      appString.PAYMENT_METHOD_CREATED,
+      setting,
+    );
+  } catch (err) {
+    return commonUtils.sendErrorResponse(req, res, err.message, null);
+  }
+};
+
+module.exports = {
+  registerAdmin,
+  adminLogin,
+  getAlluser,
+  updateUserStatus,
+  getAllUsersWithDetails,
+  setPaymentMethodd,
+};
 //user.isDeleted === ENUM.DELETE_STATUS.ADMIN_DELETE
 
 // GET /api/admin/getallUsers?search=jems&deletedUser=false

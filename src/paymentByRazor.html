@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Razorpay Static Payment</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #f4f4f4;
+    }
+    .payment-container {
+      padding: 20px;
+      border: 1px solid #ccc;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #528FF0;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #4168D3;
+    }
+  </style>
+</head>
+<body>
+  <div class="payment-container">
+    <h2>Pay with Razorpay</h2>
+    <button id="rzp-button">Pay Now</button>
+  </div>
+
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script>
+    // TODO: replace these with your actual values
+    const RAZORPAY_KEY_ID = "rzp_test_SFWXjfHgxXnfwR";         // your key_id
+    const RAZORPAY_ORDER_ID = "order_SFclXR09FokMn7";    // order id from backend
+    // const AMOUNT_IN_PAISE = 500000; // 5000.00 INR = 500000 paise
+    const CURRENCY = "INR";
+
+    const options = {
+      key: RAZORPAY_KEY_ID,
+      // amount: AMOUNT_IN_PAISE,
+      currency: CURRENCY,
+      name: "tedst",
+      description: "Test Transaction",
+      order_id: RAZORPAY_ORDER_ID,
+      handler: function (response) {
+        // This runs on successful payment
+        // You can just log or show alert if you’re not verifying on server
+        alert(
+          "Payment successful!\n" +
+          "Order ID: " + response.razorpay_order_id + "\n" +
+          "Payment ID: " + response.razorpay_payment_id
+        );
+
+        // If later you add a verify API, you can call it from here
+      },
+      prefill: {
+        name: "khushi",
+        email: "shuklakhushi111@gmail.com",
+        contact: "9999999999",
+      },
+      theme: {
+        color: "#528FF0",
+      },
+    };
+
+    const rzp1 = new Razorpay(options);
+
+    document.getElementById("rzp-button").onclick = function (e) {
+      rzp1.open();
+      e.preventDefault();
+    };
+  </script>
+</body>
+</html>

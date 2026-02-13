@@ -116,4 +116,10 @@ module.exports = [
     method: "get",
     controller: productController.getProductById,
   },
+  // payment setting========
+  {
+    path: "/setPaymentMethod",
+    method: "put",
+    controller:adminController.setPaymentMethodd,
+  },
 ];

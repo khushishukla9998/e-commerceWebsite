@@ -7,6 +7,13 @@ const stripe = require("stripe")(config.STRIPE_SECRET_KEY);
 const ENUM = require("../../utils/enum");
 const appString = require("../../utils/appString");
 const commonUtils = require("../../utils/commonUtils");
+const Razorpay = require("razorpay");
+const Crypto = require("crypto");
+const paymentSetting = require("../../admin/model/settingModel");
+const razoprpay = new Razorpay({
+  key_id: config.RAZORPAY_KEY_ID,
+  key_secret: config.RAZORPAY_SECRETE_KEY,
+});
 
 //=============palce order ==================
 const placeOrder = async (req, res) => {
@@ -45,10 +52,20 @@ const placeOrder = async (req, res) => {
       );
     }
 
+    const setting = await paymentSetting.findOne();
+    if (!setting) {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        appString.METHOD_FAILED,
+        null,
+      );
+    }
+
     // Get Cart
     const cart = await Cart.findOne({ userId }).populate(
       "items.productId",
-      "productName price images",
+      "productName price images quantity",
     );
     if (!cart || !cart.items || cart.items.length === 0) {
       return commonUtils.sendErrorResponse(
@@ -58,9 +75,6 @@ const placeOrder = async (req, res) => {
         null,
       );
     }
-
-    // const product = await Product.findOne(quantity)
-    // if(product > product.quantity)
 
     // Prepare Order Items
     const orderItems = [];
@@ -109,46 +123,80 @@ const placeOrder = async (req, res) => {
       addressId,
       items: orderItems,
       totalPrice,
-      status: ENUM.ORDER_STATUS.PENDING, //default pending
+      status: ENUM.ORDER_STATUS.PENDING,           // default pending
       paymentStatus: ENUM.PAYMENT_STATUS.PENDING, // default pending
       orderDate: new Date(),
     });
 
-    // ---  create Stripe PaymentIntent using automatic_payment_methods
+    const paymentMethod = setting.paymentMethod;
+    let paymentResponse = null;
 
-    let paymentIntent;
-    try {
-      paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(totalPrice * 100),
-        currency: "inr",
-        description: `Order ${newOrder._id} for ${req.user.email}`,
-        automatic_payment_methods: {
-          enabled: true,
-          allow_redirects: "never",
-        },
-      });
-    } catch (stripeErr) {
-      newOrder.status = ENUM.ORDER_STATUS.FAILED;
-      newOrder.paymentStatus = ENUM.PAYMENT_STATUS.FAILED;
-      await newOrder.save();
+    // STRIPE
+    if (paymentMethod === ENUM.PAYMENT_METHOD.STRIPE) {
+      try {
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: Math.round(totalPrice * 100),
+          currency: "inr",
+          description: `Order ${newOrder._id} for ${req.user.email}`,
+          automatic_payment_methods: {
+            enabled: true,
+            allow_redirects: "never",
+          },
+        });
 
-      return commonUtils.sendErrorResponse(
-        req,
-        res,
-        appString.stripeErr.message,
-        null,
-      );
+        paymentResponse = paymentIntent;
+        newOrder.stripePaymentIntentId = paymentIntent.id;
+
+
+     // update to CONFIRMED after payment confirmation or webhook.
+      } catch (stripeErr) {
+        newOrder.status = ENUM.ORDER_STATUS.FAILED;
+        newOrder.paymentStatus = ENUM.PAYMENT_STATUS.FAILED;
+        await newOrder.save();
+
+        return commonUtils.sendErrorResponse(
+          req,
+          res,
+          stripeErr.message,
+          null,
+        );
+      }
     }
 
-    // Save Payment Intent ID to DB
-    newOrder.stripePaymentIntentId = paymentIntent.id;
+    // RAZORPAY
+    else if (paymentMethod === ENUM.PAYMENT_METHOD.RAZOR_PAY) {
+      try {
+        const razorpayOrder = await razoprpay.orders.create({
+          amount: Math.round(totalPrice * 100),
+          currency: "INR",
+          receipt: `order_${newOrder._id}`,
+        });
+
+        newOrder.razorpayOrderId = razorpayOrder.id;
+        paymentResponse = razorpayOrder;
+        // Still PENDING until payment captured
+      } catch (err) {
+        newOrder.status = ENUM.ORDER_STATUS.FAILED;
+        newOrder.paymentStatus = ENUM.PAYMENT_STATUS.FAILED;
+        await newOrder.save();
+
+        return commonUtils.sendErrorResponse(req, res, err.message, null);
+      }
+    }
+
+    // COD
+    else if (paymentMethod === ENUM.PAYMENT_METHOD.COD) {
+      newOrder.paymentStatus = ENUM.PAYMENT_STATUS.PENDING;
+      newOrder.status = ENUM.ORDER_STATUS.PENDING; // 
+    }
+
     await newOrder.save();
 
     return commonUtils.sendSuccessResponse(
       req,
       res,
       appString.ORDER_PLACED_SUCCESS,
-      newOrder,
+      { newOrder, paymentResponse, paymentMethod },
     );
   } catch (err) {
     console.error("Place Order Error:", err);
@@ -307,7 +355,12 @@ const getUserOrders = async (req, res) => {
       }
     });
 
-    return commonUtils.sendSuccessResponse(req, res, appString.FETCH_SUCCESS, groupedOrders);
+    return commonUtils.sendSuccessResponse(
+      req,
+      res,
+      appString.FETCH_SUCCESS,
+      groupedOrders,
+    );
   } catch (err) {
     return commonUtils.sendErrorResponse(req, res, err.message, null, 500);
   }
