@@ -3,6 +3,7 @@ const config = require("../../config/dev.json");
 const redisClient = require("../component/utils/redisClient");
 const appStrings = require("../component/utils/appString")
 
+
 // Access token
 function generateAccessToken(payload) {
   return jwt.sign(payload, config.ACCESS_TOKEN_SECRET, {
@@ -108,6 +109,7 @@ async function verifyAcessToken(req, res, next) {
 function verifyRefreshToken(token) {
   return jwt.verify(token, config.REFRESH_TOKEN_SECRET);
 }
+
 
 module.exports = {
   generateAccessToken,

@@ -71,7 +71,7 @@ module.exports = {
   PAASWORD_RESET_SUCCESS: "Password reset successfully",
   PASSWORD_RESET_FAILED: "Password reset failed",
   INVALID_OTP: "Otp invalid ",
-  OTP_EXPIRED: " Youre OTP is Expired ",
+  OTP_EXPIRED: " Your OTP is Expired ",
 
   //  main category
   CATEGORY_EXIST: "Category already exist ",
@@ -134,5 +134,8 @@ module.exports = {
 
   INVALID_PAYMENT_METHOD: "Invalid payment method",
   PAYMENT_METHOD_CREATED: " Payment method updated",
-  METHOD_FAILED:"Payment method not configured by admin "
+  METHOD_FAILED: "Payment method not configured by admin ",
+
+  NOT_BOTH: "Use either email or mobile no. !!! NOT both",
+  REQUIRED: "email OR mobile no is required",
 };

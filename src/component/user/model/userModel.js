@@ -11,12 +11,17 @@ const userSchema = mongoose.Schema({
     },
     email: {
         type: String,
-        required: true,
-        unique: true
+        unique: true,
+        sparse:true,
     },
     password: {
         type: String,
         required: true,
+    },
+    mobileNo:{
+     type:Number,
+    unique: true,
+      sparse:true,
     },
     profileImage: {
         type: String,
@@ -31,7 +36,25 @@ const userSchema = mongoose.Schema({
     },
     deletedBy: {
         type: mongoose.Types.ObjectId
-    }
+    },
+    isEmailVerfied:{
+        type:Boolean,
+        default:false
+    },
+       isMobileVerfied:{
+        type:Boolean,
+        default:false
+    },
+    
+    otp:String,
+    otpExpire:Date,
+    emailOtp:String,
+    emailOtpExpire:Date,
+    emailOtpLastSend :Date,
+    mobileOtpLastSend :Date,
+  
+
+
 
 });
 

@@ -156,6 +156,44 @@ module.exports = [
     path: "/getProduct/:productId",
     method: "get",
     controller: productController.getProductById,
-    isPublic: true, // Allow browsing products without login? Or maybe semi-public. The user said 'not user in product controller by thier product id'.
+    isPublic: true, 
+
+  },
+    {
+    path: "/emailVerified",
+    method: "post",
+    controller: controller.verifyEmailOtp,
+    isPublic: true, 
+    
+  },
+     {
+    path: "/mobileVerified",
+    method: "post",
+    controller: controller.verifyMbileOtp,
+    isPublic: true, 
+    
+  },
+
+   {
+    path: "/resendEmailOtp",
+    method: "post",
+    controller: controller.resendEmailOtp,
+    isPublic: true, 
+    
+  },
+
+   {
+    path: "/resendMobileOtp",
+    method: "post",
+    controller: controller.resendMobileOtp,
+    isPublic: true, 
+    
+  },
+   {
+    path: "/updateProfile",
+    method: "put",
+    controller: controller.updateProfile,
+
+    
   },
 ];

@@ -277,9 +277,12 @@ const getAlluser = async (req, res) => {
         $project: {
           name: 1,
           email: 1,
+          mobileNo:1,
           status: 1,
           isDeleted: 1,
           addresses: 1,
+          isEmailVerfied:1,
+          isMobileVerfied:1
         },
       },
 

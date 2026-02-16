@@ -30,6 +30,7 @@
     "razorpay": "^2.9.6",
     "redis": "^5.10.0",
     "stripe": "^20.3.1",
+    "twilio": "^5.12.1",
     "validatorjs": "^3.22.1"
   }
 }

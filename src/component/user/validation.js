@@ -5,7 +5,7 @@ const commonUtils = require("../utils/commonUtils");
 
 async function registerValidation(req, res, next) {
   const validationRule = {
-    email: `required|string|min:4|max:255`,
+   // email: `required|string|min:4|max:255`,
     password:
       "required|min:6|max:50|regex:/[A-Z]/|regex:/[0-9]/|regex:/[@$!%*#?&]/",
   };
@@ -17,7 +17,7 @@ async function registerValidation(req, res, next) {
 //================for Login validation======================================
 async function loginValidation(req, res, next) {
   const validationRule = {
-    email: `required|string|min:4|max:255`,
+   // email: `required|string|min:4|max:255`,
     password:
       "required|min:6|max:50|regex:/[A-Z]/|regex:/[0-9]/|regex:/[@$!%*#?&]/",
   };

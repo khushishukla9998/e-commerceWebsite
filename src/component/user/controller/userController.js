@@ -11,41 +11,146 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const redisClient = require("../../utils/redisClient");
-
+const sendVerificationEmail = require("../../utils/emailService");
+const sendOtp = require("../../utils/smsService");
 
 //====================REGISTER=======================================================\\
 
+function normalizeIndianMobile(mobileNo) {
+  if (!mobileNo) {
+    throw new Error("Mobile number is required");
+  }
+
+  let str = mobileNo.toString().trim();
+
+  if (str.startsWith("+")) {
+    str = "+" + str.slice(1).replace(/\D/g, "");
+  } else {
+    str = str.replace(/\D/g, "");
+  }
+
+  if (str.startsWith("+")) {
+    if (!str.startsWith("+91")) {
+      throw new Error("Only Indian (+91) numbers are supported");
+    }
+    if (str.length !== 13) {
+      throw new Error("Invalid Indian mobile number format");
+    }
+    return str;
+  }
+
+  if (str.length !== 10) {
+    throw new Error("Invalid mobile number format");
+  }
+
+  return `+91${str}`;
+}
+
 const register = async function (req, res) {
   try {
-    console.log("request", req);
+    console.log("request body:", req.body);
+    const { name, email, password, profileImage, mobileNo } = req.body;
 
-    const { name, email, password, profileImage } = req.body;
-    console.log(req.body);
+    // if both provided
+    if (email && mobileNo) {
+      return commonUtils.sendErrorResponse(req, res, appStrings.NOT_BOTH);
+    }
 
+    // if none provided
+    if (!email && !mobileNo) {
+      return commonUtils.sendErrorResponse(req, res, appStrings.REQUIRED);
+    }
+
+    // user exist or not (by email OR mobile)
     // user exist or not
     const userExist = await User.findOne({
       email,
+      mobileNo,
       isDeleted: ENUM.DELETE_STATUS.NOT_DELETE,
     });
 
     if (userExist) {
-      return commonUtils.sendErrorResponse(req, res, appStrings.USER_EXIST, null, 409);
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        appStrings.USER_EXIST,
+        null,
+        409,
+      );
     }
 
     // hash password
     const hashpass = await bcrypt.hash(password, 10);
 
-    // create user
-    const user = new User({
+    // prepare user data
+    const userData = {
       name,
-      email,
       password: hashpass,
-      profileImage,
-    });
+      profileImage: profileImage || null,
+      email: null,
+      mobileNo: null,
+    };
 
-    await user.save();
+    let otp;
 
-    // generate access & refresh token
+    // ============ email registration ============== //
+    let emailOtp;
+    if (email) {
+      emailOtp = Math.floor(100000 + Math.random() * 900000);
+      userData.email = email;
+      userData.emailOtp = emailOtp;
+      userData.emailOtpExpire = Date.now() + 5 * 60 * 1000; // 5 min
+    }
+
+    // send otp email (if email reg)
+    if (email) {
+      try {
+        await sendVerificationEmail(email, emailOtp);
+        // return commonUtils.sendSuccessResponse(req, res, "otp sent to email");
+      } catch (e) {
+        console.error("Error sending verification email:", e);
+      }
+    }
+
+    // ============ phone registration ============== //
+
+    let formattedMobile;
+    if (mobileNo) {
+      try {
+        formattedMobile = normalizeIndianMobile(mobileNo);
+      } catch (e) {
+        console.error("Mobile normalize error:", e.message);
+        return commonUtils.sendErrorResponse(req, res, e.message);
+      }
+
+      //OTP generation
+      otp = Math.floor(100000 + Math.random() * 900000);
+
+      userData.mobileNo = formattedMobile;
+      userData.otp = otp;
+      userData.otpExpire = Date.now() + 5 * 60 * 1000; // 5 min
+    }
+
+    // create user exactly once
+    const user = await User.create(userData);
+
+    // send OTP (if phone reg)
+    if (mobileNo) {
+      try {
+        console.log("Sending OTP to:", formattedMobile, "otp:", otp);
+        await sendOtp(formattedMobile, otp);
+      } catch (e) {
+        console.error("Error sending OTP via Twilio:", e);
+        // Twilio trial often throws 21608 for unverified numbers
+        return commonUtils.sendErrorResponse(
+          req,
+          res,
+          "Failed to send OTP, please verify your phone number or contact support.",
+        );
+      }
+    }
+
+    // generate tokens
     const accessToken = token.generateAccessToken({ id: user._id });
     const refreshToken = token.generateRefreshToken({ id: user._id });
 
@@ -53,36 +158,38 @@ const register = async function (req, res) {
     commonUtils.storeAcessTokenInCookie(res, "accessToken", accessToken);
     commonUtils.storeRefreshTokenInCookie(res, "refreshToken", refreshToken);
 
-    // Store Access & Refresh Tokens in Redis
-    // await redisClient.set(user._id.toString(),accessToken , { EX: 600 });
-    // await redisClient.set(user._id.toString(),refreshToken,  { EX: 604800 }); // 7 days
-
+    // store tokens in Redis
     await redisClient.set(`user:access:${user._id}`, accessToken, { EX: 600 });
-
-
-    await redisClient.set(`user:refresh:${user._id}`, refreshToken, { EX: 604800 });
-
+    await redisClient.set(`user:refresh:${user._id}`, refreshToken, {
+      EX: 604800,
+    });
 
     // send success response
-    return commonUtils.sendSuccessResponse(req, res, appStrings.REGISTRATION_SUCCESS, {
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        profileImage: user.profileImage,
-        status: ENUM.USER_STATUS,
+    return commonUtils.sendSuccessResponse(
+      req,
+      res,
+      appStrings.REGISTRATION_SUCCESS,
+      {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          mobileNo: user.mobileNo,
+          profileImage: user.profileImage,
+          status: ENUM.USER_STATUS,
+          emailOtp: user.emailOtp,
+          otp: user.otp,
+        },
+        accessToken,
+        refreshToken,
       },
-      accessToken,
-      refreshToken,
-    });
+    );
   } catch (err) {
     console.log(appStrings.REGISTRATION_ERROR, err);
     return commonUtils.sendErrorResponse(
       req,
       res,
       appStrings.REGISTRATION_FAILED,
-      { error: err.message },
-      500,
     );
   }
 };
@@ -93,22 +200,54 @@ const register = async function (req, res) {
 
 const login = async function (req, res) {
   try {
-    const { email, password } = req.body;
+    const { email, mobileNo, password } = req.body;
     // check the user is active
     const user = await User.findOne({
       email,
+      mobileNo,
       isDeleted: ENUM.DELETE_STATUS.NOT_DELETE,
     });
 
     // if user not active or not register
     if (!user) {
       const deletedUser = await User.findOne({ email });
-      if (deletedUser && deletedUser.isDeleted === ENUM.DELETE_STATUS.ADMIN_DELETE) {
-        return commonUtils.sendErrorResponse(req, res, appStrings.USER_ADMIN_DELETED, null, 403);
+      if (
+        deletedUser &&
+        deletedUser.isDeleted === ENUM.DELETE_STATUS.ADMIN_DELETE
+      ) {
+        return commonUtils.sendErrorResponse(
+          req,
+          res,
+          appStrings.USER_ADMIN_DELETED,
+          null,
+          403,
+        );
       }
-      return commonUtils.sendErrorResponse(req, res, appStrings.USER_NOT_FOUND);
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        appStrings.USER_NOT_FOUND,
+        null,
+      );
     }
 
+    if (user.email && !user.isEmailVerfied) {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        "First verify your email",
+        null,
+      );
+    }
+
+    if (user.mobileNo && !user.isMobileVerfied) {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        "First verify your mobile number ",
+        null,
+      );
+    }
     // compare the password which is enter by the user is correct with privious password and not
     const match = await bcrypt.compare(password, user.password);
 
@@ -131,11 +270,11 @@ const login = async function (req, res) {
     // await redisClient.set(accessToken, user._id.toString(), { EX: 600 });
     // await redisClient.set(refreshToken, user._id.toString(), { EX: 604800 });
 
-
     await redisClient.set(`user:access:${user._id}`, accessToken, { EX: 600 });
 
-
-    await redisClient.set(`user:refresh:${user._id}`, refreshToken, { EX: 604800 });
+    await redisClient.set(`user:refresh:${user._id}`, refreshToken, {
+      EX: 604800,
+    });
 
     // ==============send the response===========================
     return commonUtils.sendSuccessResponse(req, res, appStrings.LOGIN_SUCCESS, {
@@ -161,14 +300,20 @@ async function getprofile(req, res) {
     const userId = req.headers.id;
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-      return commonUtils.sendErrorResponse(req, res, appStrings.INVALID_USER_ID, null, 400);
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        appStrings.INVALID_USER_ID,
+        null,
+        400,
+      );
     }
 
     const userProfile = await User.aggregate([
       {
         $match: {
           _id: new mongoose.Types.ObjectId(userId),
-          isDeleted: ENUM.DELETE_STATUS.NOT_DELETE
+          isDeleted: ENUM.DELETE_STATUS.NOT_DELETE,
         },
       },
       {
@@ -181,21 +326,21 @@ async function getprofile(req, res) {
                 $expr: {
                   $and: [
                     { $eq: ["$userId", "$$userId"] },
-                    { $eq: ["$isPrimary", true] }
-                  ]
-                }
-              }
+                    { $eq: ["$isPrimary", true] },
+                  ],
+                },
+              },
             },
-            { $project: { _id: 0, street: 1, city: 1, state: 1, zipCode: 1 } }
+            { $project: { _id: 0, street: 1, city: 1, state: 1, zipCode: 1 } },
           ],
-          as: "primaryAddress"
-        }
+          as: "primaryAddress",
+        },
       },
       {
         $unwind: {
           path: "$primaryAddress",
-          preserveNullAndEmptyArrays: true
-        }
+          preserveNullAndEmptyArrays: true,
+        },
       },
       {
         $project: {
@@ -204,13 +349,19 @@ async function getprofile(req, res) {
           email: 1,
           status: 1,
           profileImage: 1,
-          primaryAddress: 1
-        }
-      }
+          primaryAddress: 1,
+        },
+      },
     ]);
 
     if (!userProfile || userProfile.length === 0) {
-      return commonUtils.sendErrorResponse(req, res, appStrings.USER_NOT_FOUND, null, 404);
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        appStrings.USER_NOT_FOUND,
+        null,
+        404,
+      );
     }
 
     const userData = userProfile[0];
@@ -219,9 +370,20 @@ async function getprofile(req, res) {
       userData.primaryAddress = appStrings.PRIMERY_ADSRESS_NOT_FOUND;
     }
 
-    return commonUtils.sendSuccessResponse(req, res, appStrings.USER_PROFILE, userData);
+    return commonUtils.sendSuccessResponse(
+      req,
+      res,
+      appStrings.USER_PROFILE,
+      userData,
+    );
   } catch (err) {
-    return commonUtils.sendErrorResponse(req, res, appStrings.PROFILE_ERROR, { error: err.message }, 500);
+    return commonUtils.sendErrorResponse(
+      req,
+      res,
+      appStrings.PROFILE_ERROR,
+      { error: err.message },
+      500,
+    );
   }
 }
 
@@ -233,18 +395,23 @@ async function deletuser(req, res) {
       status: ENUM.USER_STATUS.INACTIVE,
     });
 
-    return commonUtils.sendSuccessResponse(req, res, appStrings.DELETE_SUCCSESS);
+    return commonUtils.sendSuccessResponse(
+      req,
+      res,
+      appStrings.DELETE_SUCCSESS,
+    );
   } catch (err) {
-    return commonUtils.sendErrorResponse(req, res, appStrings.DELETE_ERROR, { error: err.message }, 500);
+    return commonUtils.sendErrorResponse(
+      req,
+      res,
+      appStrings.DELETE_ERROR,
+      { error: err.message },
+      500,
+    );
   }
 }
 
-
-
 //=================================logout==============================================
-
-
-
 
 const logout = async (req, res) => {
   try {
@@ -277,7 +444,6 @@ const logout = async (req, res) => {
       await redisClient.del(`user:refresh:${userId}`);
     }
 
-
     if (accessToken) {
       await redisClient.del(accessToken);
     }
@@ -297,14 +463,12 @@ const logout = async (req, res) => {
       res,
       appStrings.LOGOUT_ERROR,
       { error: err.message },
-      500
+      500,
     );
   }
 };
 
 //==================== multiple file upload controller==============================
-
-
 
 const multered = (req, res, next) => {
   try {
@@ -318,8 +482,7 @@ const multered = (req, res, next) => {
         cb(null, uploadPath);
       },
       filename: function (req, file, cb) {
-        const uniqueName =
-          Date.now() + "-" + Math.round(Math.random() * 1e9);
+        const uniqueName = Date.now() + "-" + Math.round(Math.random() * 1e9);
         cb(null, uniqueName + path.extname(file.originalname));
       },
     });
@@ -329,19 +492,37 @@ const multered = (req, res, next) => {
       // limites of file capacity
       limits: {
         fileSize: 1 * 1024 * 1024, // 1MB per file
-        files: 10,                 // up to 10 files
+        files: 10, // up to 10 files
       },
     }).array("profileImage", 10);
 
     upload(req, res, (err) => {
       if (err instanceof multer.MulterError) {
-        return commonUtils.sendErrorResponse(req, res, appStrings.UPLOAD_MULTER_ERROR, { error: err.message }, 400);
+        return commonUtils.sendErrorResponse(
+          req,
+          res,
+          appStrings.UPLOAD_MULTER_ERROR,
+          { error: err.message },
+          400,
+        );
       } else if (err) {
-        return commonUtils.sendErrorResponse(req, res, appStrings.UPLOAD_ERROR, { error: err.message }, 400);
+        return commonUtils.sendErrorResponse(
+          req,
+          res,
+          appStrings.UPLOAD_ERROR,
+          { error: err.message },
+          400,
+        );
       }
 
       if (!req.files || req.files.length === 0) {
-        return commonUtils.sendErrorResponse(req, res, appStrings.UOLOAD_MESSAGE, null, 400);
+        return commonUtils.sendErrorResponse(
+          req,
+          res,
+          appStrings.UOLOAD_MESSAGE,
+          null,
+          400,
+        );
       }
 
       // only thise type of fle or image can be uploaded
@@ -350,12 +531,24 @@ const multered = (req, res, next) => {
       for (const file of req.files) {
         if (!allowedTypes.includes(file.mimetype)) {
           fs.unlinkSync(file.path);
-          return commonUtils.sendErrorResponse(req, res, appStrings.UPLOAD_VALIDATION, null, 400);
+          return commonUtils.sendErrorResponse(
+            req,
+            res,
+            appStrings.UPLOAD_VALIDATION,
+            null,
+            400,
+          );
         }
         // check the fileSize
         if (file.size > 5 * 1024 * 1024) {
           fs.unlinkSync(file.path);
-          return commonUtils.sendErrorResponse(req, res, appStrings.UPLOAD_LIMIT, null, 400);
+          return commonUtils.sendErrorResponse(
+            req,
+            res,
+            appStrings.UPLOAD_LIMIT,
+            null,
+            400,
+          );
         }
       }
 
@@ -365,52 +558,347 @@ const multered = (req, res, next) => {
         originalname: file.originalname,
       }));
 
-      return commonUtils.sendSuccessResponse(req, res, appStrings.UPLOAD_SUCCESS, files);
+      return commonUtils.sendSuccessResponse(
+        req,
+        res,
+        appStrings.UPLOAD_SUCCESS,
+        files,
+      );
     });
   } catch (error) {
     return commonUtils.sendErrorResponse(req, res, error.message, null, 500);
   }
 };
 
-// refresh token api 
+// ==================refresh token api=========================
+
 const refreshAccessToken = async (req, res) => {
   try {
     const refreshToken = req.cookies.refreshToken;
-    console.log('refreshToken cookie:', refreshToken);
+    console.log("refreshToken cookie:", refreshToken);
 
     if (!refreshToken) {
-      return commonUtils.sendErrorResponse(req, res, appStrings.REFRESH_TOKEN_MISSING, null, 401);
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        appStrings.REFRESH_TOKEN_MISSING,
+        null,
+        401,
+      );
     }
 
     const decoded = token.verifyRefreshToken(refreshToken);
-    console.log('decoded refresh token:', decoded);
+    console.log("decoded refresh token:", decoded);
 
     const newAccessToken = token.generateAccessToken({ id: decoded.id });
 
     commonUtils.storeAcessTokenInCookie(res, "accessToken", newAccessToken);
 
+    await redisClient.set(`user:access:${decoded.id}`, newAccessToken, {
+      EX: 600,
+    });
 
-    await redisClient.set(`user:access:${decoded.id}`, newAccessToken, { EX: 600 });
+    commonUtils.storeAcessTokenInCookie(res, "accessToken", newAccessToken);
 
-
-    commonUtils.storeAcessTokenInCookie(
+    return commonUtils.sendSuccessResponse(
+      req,
       res,
-      "accessToken",
-      newAccessToken
+      appStrings.ACCESS_TOKEN_REFRESHED,
+      { accessToken: newAccessToken },
     );
-
-    return commonUtils.sendSuccessResponse(req, res, appStrings.ACCESS_TOKEN_REFRESHED, { accessToken: newAccessToken });
   } catch (err) {
-    console.error('refreshAccessToken error:', err);
+    console.error("refreshAccessToken error:", err);
 
-    if (err.name === 'TokenExpiredError') {
-      return commonUtils.sendErrorResponse(req, res, appStrings.REFRESH_TOKEN_EXPIRE, null, 401);
+    if (err.name === "TokenExpiredError") {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        appStrings.REFRESH_TOKEN_EXPIRE,
+        null,
+        401,
+      );
     }
 
-    return commonUtils.sendErrorResponse(req, res, appStrings.INVALID_REFRESH_TOKEN, { error: err.message }, 401);
+    return commonUtils.sendErrorResponse(
+      req,
+      res,
+      appStrings.INVALID_REFRESH_TOKEN,
+      { error: err.message },
+      401,
+    );
   }
+};
+
+//========================== verify email otp =======================
+
+const verifyEmailOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    // 1. Basic input validation
+    if (!email || !otp) {
+      return commonUtils.sendErrorResponse(req, res, "email and OTP required");
+    }
+
+    // 2. Look up user
+    const user = await User.findOne({ email });
+    if (!user) {
+      return commonUtils.sendErrorResponse(req, res, appStrings.USER_NOT_FOUND);
+    }
+
+    // 3. Check OTP exists and not expired
+    if (!user.emailOtp || user.emailOtpExpire < Date.now()) {
+      return commonUtils.sendErrorResponse(req, res, appStrings.OTP_EXPIRED);
+    }
+
+    // 4. Check OTP value
+    if (user.emailOtp !== otp.toString()) {
+      return commonUtils.sendErrorResponse(req, res, appStrings.INVALID_OTP);
+    }
+
+    // 5. Mark email verified & clear OTP
+    user.isEmailVerfied = true;
+    user.emailOtp = null;
+    user.emailOtpExpire = null;
+    await user.save();
+
+    return commonUtils.sendSuccessResponse(req, res, "email is verified");
+  } catch (err) {
+    return commonUtils.sendErrorResponse(req, res, err.message);
+  }
+};
+
+//================= verify Mobile OTP=========================
+
+const verifyMbileOtp = async (req, res) => {
+  try {
+    const { mobileNo, otp } = req.body;
+
+    // 1. Basic input validation
+    if (!mobileNo || !otp) {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        "mobile no. and OTP required",
+      );
+    }
+
+    // 2. Look up user
+    const user = await User.findOne({ mobileNo });
+    if (!user) {
+      return commonUtils.sendErrorResponse(req, res, appStrings.USER_NOT_FOUND);
+    }
+
+    // 3. Check OTP exists and not expired
+    if (!user.otp || user.otpExpire < Date.now()) {
+      return commonUtils.sendErrorResponse(req, res, appStrings.OTP_EXPIRED);
+    }
+
+    // 4. Check OTP value
+    if (user.otp !== otp.toString()) {
+      return commonUtils.sendErrorResponse(req, res, appStrings.INVALID_OTP);
+    }
+
+    // 5. Mark email verified & clear OTP
+    user.isMobileVerfied = true;
+    user.otp = null;
+    user.otpExpire = null;
+    await user.save();
+
+    return commonUtils.sendSuccessResponse(req, res, "mobile no.  is verified");
+  } catch (err) {
+    return commonUtils.sendErrorResponse(req, res, err.message, null);
+  }
+};
+
+//================= resend Email Otp=========================
+
+const resendEmailOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return commonUtils.sendErrorResponse(req, res, "email is required", null);
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        appStrings.USER_NOT_FOUND,
+        null,
+      );
+    }
+
+    /*
+    if (user.isEmailVerfied) {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        "email already verified",
+        null
+      );
+    }
+    */
+
+    if (user.emailOtpLastSend && Date.now() - user.emailOtpLastSend < 60000) {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        "please wait before requesting new otp",
+        null,
+      );
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000);
+
+    user.emailOtp = otp;
+    user.emailOtpExpire = Date.now() + 5 * 60 * 1000;
+    user.emailOtpLastSend = Date.now();
+
+    user.isEmailVerfied = false;
+
+    await user.save();
+    await sendVerificationEmail(email, otp);
+
+    return commonUtils.sendSuccessResponse(req, res, "new otp is sent", user);
+  } catch (err) {
+    return commonUtils.sendErrorResponse(req, res, err.message, null);
+  }
+};
+
+//================= resend rMobile Otp=========================
+
+const resendMobileOtp = async (req, res) => {
+  try {
+    const { mobileNo } = req.body;
+
+    if (!mobileNo) {
+      return commonUtils.sendErrorResponse(req, res, "email is required", null);
+    }
+
+    const user = await User.findOne({ mobileNo });
+    if (!user) {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        appStrings.USER_NOT_FOUND,
+        null,
+      );
+    }
+
+    // if (user.isMobileVerfied) {
+    //   return commonUtils.sendErrorResponse(
+    //     req,
+    //     res,
+    //     "mobile no. already verified",
+    //     null,
+    //   );
+    // }
+
+    if (user.mobileOtpLastSend && Date.now() - user.mobileOtpLastSend < 60000) {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        "please wait before rquesting new otp ",
+        null,
+      );
+    }
+    const otp = Math.floor(100000 + Math.random() * 900000);
+
+    user.otp = otp;
+    user.otpExpire = Date.now() + 5 * 60 * 1000;
+    user.mobileOtpLastSend = Date.now();
+
+    user.isMobileVerfied = false;
+    await user.save();
+    await sendOtp(mobileNo, otp);
+
+    return commonUtils.sendSuccessResponse(req, res, " new otp  is send", user);
+  } catch (err) {
+    return commonUtils.sendErrorResponse(req, res, err.message, null);
+  }
+};
+
+//=======update profile===============
+
+const updateProfile = async (req, res) => {
+    // 1. Better: Extract ID from JWT/Token (req.user.id) instead of header
+    const userId = req.headers.id; 
+    try {
+        const { name, email, mobileNo } = req.body;
+
+        if (!userId) {
+            return commonUtils.sendErrorResponse(req, res, "User ID not found in headers", null);
+        }
+
+        const updateData = {};
+        
+        // 2. Only allow specific fields to be updated
+        if (name) updateData.name = name;
+        
+        // 3. Email/Mobile change requires re-verification
+        if (email) {
+            const emailOtp = Math.floor(100000 + Math.random() * 900000).toString();
+            updateData.email = email;
+            updateData.isEmailVerfied = false;
+            updateData.emailOtp = emailOtp;
+            updateData.emailOtpExpire = Date.now() + 5 * 60 * 1000;
+            // Await these in parallel for better performance if possible
+            await sendVerificationEmail(email, emailOtp);
+        }
+
+        if (mobileNo) {
+            try {
+                const formattedMobile = normalizeIndianMobile(mobileNo);
+                const otp = Math.floor(100000 + Math.random() * 900000).toString();
+                updateData.mobileNo = formattedMobile;
+                updateData.isMobileVerfied = false;
+                updateData.mobileOtp = otp;
+                updateData.mobileOtpExpire = Date.now() + 5 * 60 * 1000;
+                await sendOtp(formattedMobile, otp);
+            } catch (e) {
+                console.error("Mobile normalize error:", e.message);
+                return commonUtils.sendErrorResponse(req, res, "Invalid mobile number format");
+            }
+        }
+
+        // 4. Use runValidators: true to ensure mongoose validation runs on update
+        const user = await User.findByIdAndUpdate(
+            userId,
+            { $set: updateData },
+            { new: true, runValidators: true } 
+        );
+
+        if (!user) {
+            return commonUtils.sendErrorResponse(req, res, "User not found", null, 404);
+        }
+
+        return commonUtils.sendSuccessResponse(req, res, "Profile updated successfully", user);
+    } catch (err) {
+        console.error("Profile update error:", err);
+        return commonUtils.sendErrorResponse(req, res, "Internal Server Error", null);
+    }
 };
 
 
 
-module.exports = { register, login, getprofile, deletuser, logout, multered, refreshAccessToken };
+
+//==========================update user
+
+module.exports = {
+  register,
+  login,
+  getprofile,
+  deletuser,
+  logout,
+  multered,
+  refreshAccessToken,
+  verifyEmailOtp,
+  verifyMbileOtp,
+  resendEmailOtp,
+  resendMobileOtp,
+  updateProfile,
+};
