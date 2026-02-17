@@ -16,10 +16,13 @@ const razoprpay = new Razorpay({
 });
 
 //=============palce order ==================
+
+const { applyPromoDiscount } = commonUtils;
+
 const placeOrder = async (req, res) => {
   try {
     const userId = req.user && req.user._id;
-    const { addressId } = req.body;
+    const { addressId, code } = req.body;
 
     // Basic validations
     if (!userId) {
@@ -116,6 +119,16 @@ const placeOrder = async (req, res) => {
       );
     }
 
+    //>>> APPLY DISCOUNT HERE <<<
+    let discount = 0;
+    try {
+      discount = await applyPromoDiscount(userId, totalPrice, code || null);
+    } catch (promoErr) {
+      return commonUtils.sendErrorResponse(req, res, promoErr.message, null);
+    }
+
+    const payableAmount = Math.max(totalPrice - discount);
+
     // Create Order
     const newOrder = await Order.create({
       userId,
@@ -123,7 +136,9 @@ const placeOrder = async (req, res) => {
       addressId,
       items: orderItems,
       totalPrice,
-      status: ENUM.ORDER_STATUS.PENDING,           // default pending
+      discount,
+      finalAmount: payableAmount,
+      status: ENUM.ORDER_STATUS.PENDING, // default pending
       paymentStatus: ENUM.PAYMENT_STATUS.PENDING, // default pending
       orderDate: new Date(),
     });
@@ -135,7 +150,7 @@ const placeOrder = async (req, res) => {
     if (paymentMethod === ENUM.PAYMENT_METHOD.STRIPE) {
       try {
         const paymentIntent = await stripe.paymentIntents.create({
-          amount: Math.round(totalPrice * 100),
+          amount: Math.round(payableAmount * 100),
           currency: "inr",
           description: `Order ${newOrder._id} for ${req.user.email}`,
           automatic_payment_methods: {
@@ -147,19 +162,13 @@ const placeOrder = async (req, res) => {
         paymentResponse = paymentIntent;
         newOrder.stripePaymentIntentId = paymentIntent.id;
 
-
-     // update to CONFIRMED after payment confirmation or webhook.
+        // update to CONFIRMED after payment confirmation or webhook.
       } catch (stripeErr) {
         newOrder.status = ENUM.ORDER_STATUS.FAILED;
         newOrder.paymentStatus = ENUM.PAYMENT_STATUS.FAILED;
         await newOrder.save();
 
-        return commonUtils.sendErrorResponse(
-          req,
-          res,
-          stripeErr.message,
-          null,
-        );
+        return commonUtils.sendErrorResponse(req, res, stripeErr.message, null);
       }
     }
 
@@ -167,7 +176,7 @@ const placeOrder = async (req, res) => {
     else if (paymentMethod === ENUM.PAYMENT_METHOD.RAZOR_PAY) {
       try {
         const razorpayOrder = await razoprpay.orders.create({
-          amount: Math.round(totalPrice * 100),
+          amount: Math.round(payableAmount * 100),
           currency: "INR",
           receipt: `order_${newOrder._id}`,
         });
@@ -187,7 +196,7 @@ const placeOrder = async (req, res) => {
     // COD
     else if (paymentMethod === ENUM.PAYMENT_METHOD.COD) {
       newOrder.paymentStatus = ENUM.PAYMENT_STATUS.PENDING;
-      newOrder.status = ENUM.ORDER_STATUS.PENDING; // 
+      newOrder.status = ENUM.ORDER_STATUS.PENDING; //
     }
 
     await newOrder.save();
@@ -196,7 +205,7 @@ const placeOrder = async (req, res) => {
       req,
       res,
       appString.ORDER_PLACED_SUCCESS,
-      { newOrder, paymentResponse, paymentMethod },
+      { newOrder, paymentResponse, paymentMethod, discount, payableAmount },
     );
   } catch (err) {
     console.error("Place Order Error:", err);

@@ -2,6 +2,7 @@ const express = require("express");
 const adminController = require("./controller/adminController");
 const categoryController = require("./controller/categoryController");
 const productController = require("./controller/productController");
+const PromoController = require("../admin/controller/promoController")
 
 module.exports = [
   //   {
@@ -116,10 +117,22 @@ module.exports = [
     method: "get",
     controller: productController.getProductById,
   },
-  // payment setting========
+
+
+  // ===================payment setting========
+
   {
     path: "/setPaymentMethod",
     method: "put",
     controller:adminController.setPaymentMethodd,
   },
+
+
+  //=================promo===================
+{
+    path: "/createPromo",
+    method: "post",
+    controller:PromoController.createPromo,
+  },
+
 ];

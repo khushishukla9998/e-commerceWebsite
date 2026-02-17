@@ -23,27 +23,26 @@ function normalizeIndianMobile(mobileNo) {
 
   let str = mobileNo.toString().trim();
 
-  if (str.startsWith("+")) {
-    str = "+" + str.slice(1).replace(/\D/g, "");
-  } else {
-    str = str.replace(/\D/g, "");
-  }
+  // Strip all non-digits
+  str = str.replace(/\D/g, "");
 
-  if (str.startsWith("+")) {
-    if (!str.startsWith("+91")) {
-      throw new Error("Only Indian (+91) numbers are supported");
-    }
-    if (str.length !== 13) {
-      throw new Error("Invalid Indian mobile number format");
-    }
-    return str;
+  // Handle common Indian prefixes
+  if (str.length === 12 && str.startsWith("91")) {
+    str = str.slice(2);
+  } else if (str.length === 13 && str.startsWith("0")) {
+    // Some might use 091...
+    str = str.slice(3);
+  } else if (str.length === 11 && str.startsWith("0")) {
+    str = str.slice(1);
   }
 
   if (str.length !== 10) {
-    throw new Error("Invalid mobile number format");
+    throw new Error(
+      "Invalid Indian mobile number format. Please provide a 10-digit number.",
+    );
   }
 
-  return `+91${str}`;
+  return str;
 }
 
 const register = async function (req, res) {
@@ -61,13 +60,21 @@ const register = async function (req, res) {
       return commonUtils.sendErrorResponse(req, res, appStrings.REQUIRED);
     }
 
-    // user exist or not (by email OR mobile)
+    // Prepare query for existing user
+    const query = { isDeleted: ENUM.DELETE_STATUS.NOT_DELETE };
+    if (email) query.email = email;
+    if (mobileNo) {
+      let formattedMobile;
+      try {
+        formattedMobile = normalizeIndianMobile(mobileNo);
+        query.mobileNo = formattedMobile;
+      } catch (e) {
+        return commonUtils.sendErrorResponse(req, res, e.message);
+      }
+    }
+
     // user exist or not
-    const userExist = await User.findOne({
-      email,
-      mobileNo,
-      isDeleted: ENUM.DELETE_STATUS.NOT_DELETE,
-    });
+    const userExist = await User.findOne(query);
 
     if (userExist) {
       return commonUtils.sendErrorResponse(
@@ -87,7 +94,7 @@ const register = async function (req, res) {
       name,
       password: hashpass,
       profileImage: profileImage || null,
-      email: null,
+      email: email || null,
       mobileNo: null,
     };
 
@@ -97,7 +104,6 @@ const register = async function (req, res) {
     let emailOtp;
     if (email) {
       emailOtp = Math.floor(100000 + Math.random() * 900000);
-      userData.email = email;
       userData.emailOtp = emailOtp;
       userData.emailOtpExpire = Date.now() + 5 * 60 * 1000; // 5 min
     }
@@ -106,7 +112,6 @@ const register = async function (req, res) {
     if (email) {
       try {
         await sendVerificationEmail(email, emailOtp);
-        // return commonUtils.sendSuccessResponse(req, res, "otp sent to email");
       } catch (e) {
         console.error("Error sending verification email:", e);
       }
@@ -114,10 +119,14 @@ const register = async function (req, res) {
 
     // ============ phone registration ============== //
 
-    let formattedMobile;
+    let formattedMobileForSms;
     if (mobileNo) {
+      let formattedMobile;
       try {
         formattedMobile = normalizeIndianMobile(mobileNo);
+        userData.mobileNo = formattedMobile;
+        // Full format for Twilio
+        formattedMobileForSms = `+91${formattedMobile}`;
       } catch (e) {
         console.error("Mobile normalize error:", e.message);
         return commonUtils.sendErrorResponse(req, res, e.message);
@@ -126,7 +135,6 @@ const register = async function (req, res) {
       //OTP generation
       otp = Math.floor(100000 + Math.random() * 900000);
 
-      userData.mobileNo = formattedMobile;
       userData.otp = otp;
       userData.otpExpire = Date.now() + 5 * 60 * 1000; // 5 min
     }
@@ -135,13 +143,12 @@ const register = async function (req, res) {
     const user = await User.create(userData);
 
     // send OTP (if phone reg)
-    if (mobileNo) {
+    if (mobileNo && formattedMobileForSms) {
       try {
-        console.log("Sending OTP to:", formattedMobile, "otp:", otp);
-        await sendOtp(formattedMobile, otp);
+        console.log("Sending OTP to:", formattedMobileForSms, "otp:", otp);
+        await sendOtp(formattedMobileForSms, otp);
       } catch (e) {
         console.error("Error sending OTP via Twilio:", e);
-        // Twilio trial often throws 21608 for unverified numbers
         return commonUtils.sendErrorResponse(
           req,
           res,
@@ -176,7 +183,7 @@ const register = async function (req, res) {
           email: user.email,
           mobileNo: user.mobileNo,
           profileImage: user.profileImage,
-          status: ENUM.USER_STATUS,
+          status: user.status,
           emailOtp: user.emailOtp,
           otp: user.otp,
         },
@@ -201,20 +208,48 @@ const register = async function (req, res) {
 const login = async function (req, res) {
   try {
     const { email, mobileNo, password } = req.body;
-    // check the user is active
-    const user = await User.findOne({
-      email,
-      mobileNo,
-      isDeleted: ENUM.DELETE_STATUS.NOT_DELETE,
-    });
+
+    const query = { isDeleted: ENUM.DELETE_STATUS.NOT_DELETE };
+    const orConditions = [];
+
+    if (email) {
+      orConditions.push({ email });
+    }
+
+    if (mobileNo) {
+      try {
+        const formattedMobile = normalizeIndianMobile(mobileNo);
+        orConditions.push({ mobileNo: formattedMobile });
+      } catch (e) {
+        return commonUtils.sendErrorResponse(req, res, e.message);
+      }
+    }
+
+    if (orConditions.length === 0) {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        "Email or Mobile number is required",
+      );
+    }
+
+    query.$or = orConditions;
+
+    // find user
+    const user = await User.findOne(query);
 
     // if user not active or not register
     if (!user) {
-      const deletedUser = await User.findOne({ email });
-      if (
-        deletedUser &&
-        deletedUser.isDeleted === ENUM.DELETE_STATUS.ADMIN_DELETE
-      ) {
+      // Check if user was deleted by admin (fallback check)
+      const deletedUser = await User.findOne({
+        $or: [
+          email ? { email } : null,
+          mobileNo ? { mobileNo: normalizeIndianMobile(mobileNo) } : null,
+        ].filter(Boolean),
+        isDeleted: ENUM.DELETE_STATUS.ADMIN_DELETE,
+      });
+
+      if (deletedUser) {
         return commonUtils.sendErrorResponse(
           req,
           res,
@@ -825,66 +860,129 @@ const resendMobileOtp = async (req, res) => {
 //=======update profile===============
 
 const updateProfile = async (req, res) => {
-    // 1. Better: Extract ID from JWT/Token (req.user.id) instead of header
-    const userId = req.headers.id; 
-    try {
-        const { name, email, mobileNo } = req.body;
+  const userId = req.headers.id;
+  try {
+    let { name, email, mobileNo } = req.body;
 
-        if (!userId) {
-            return commonUtils.sendErrorResponse(req, res, "User ID not found in headers", null);
-        }
-
-        const updateData = {};
-        
-        // 2. Only allow specific fields to be updated
-        if (name) updateData.name = name;
-        
-        // 3. Email/Mobile change requires re-verification
-        if (email) {
-            const emailOtp = Math.floor(100000 + Math.random() * 900000).toString();
-            updateData.email = email;
-            updateData.isEmailVerfied = false;
-            updateData.emailOtp = emailOtp;
-            updateData.emailOtpExpire = Date.now() + 5 * 60 * 1000;
-            // Await these in parallel for better performance if possible
-            await sendVerificationEmail(email, emailOtp);
-        }
-
-        if (mobileNo) {
-            try {
-                const formattedMobile = normalizeIndianMobile(mobileNo);
-                const otp = Math.floor(100000 + Math.random() * 900000).toString();
-                updateData.mobileNo = formattedMobile;
-                updateData.isMobileVerfied = false;
-                updateData.mobileOtp = otp;
-                updateData.mobileOtpExpire = Date.now() + 5 * 60 * 1000;
-                await sendOtp(formattedMobile, otp);
-            } catch (e) {
-                console.error("Mobile normalize error:", e.message);
-                return commonUtils.sendErrorResponse(req, res, "Invalid mobile number format");
-            }
-        }
-
-        // 4. Use runValidators: true to ensure mongoose validation runs on update
-        const user = await User.findByIdAndUpdate(
-            userId,
-            { $set: updateData },
-            { new: true, runValidators: true } 
-        );
-
-        if (!user) {
-            return commonUtils.sendErrorResponse(req, res, "User not found", null, 404);
-        }
-
-        return commonUtils.sendSuccessResponse(req, res, "Profile updated successfully", user);
-    } catch (err) {
-        console.error("Profile update error:", err);
-        return commonUtils.sendErrorResponse(req, res, "Internal Server Error", null);
+    if (!userId) {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        "User ID not found in headers",
+        null,
+      );
     }
+
+    // Fetch user to check existing fields
+    const user = await User.findById(userId);
+    if (!user) {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        "User not found",
+        null,
+        404,
+      );
+    }
+
+    console.log("Current user in DB:", {
+      email: user.email,
+      mobileNo: user.mobileNo,
+    });
+    console.log("Request body:", { name, email, mobileNo });
+
+    const updateData = {};
+
+    if (name) updateData.name = name.trim();
+
+    // Email restriction logic
+    if (email) {
+      email = email.trim().toLowerCase();
+
+      // If user already has an email and it's different from what they sent
+      if (user.email && user.email.toLowerCase() !== email) {
+        console.log("Blocking email change:", {
+          existing: user.email,
+          new: email,
+        });
+        return commonUtils.sendErrorResponse(
+          req,
+          res,
+          "Existing email cannot be changed as it is used for login. You can only add missing fields.",
+        );
+      }
+
+      // If email is not set (null, undefined, or empty string), allow adding it
+      if (!user.email || user.email.trim() === "") {
+        const emailOtp = Math.floor(100000 + Math.random() * 900000).toString();
+        updateData.email = email;
+        updateData.isEmailVerfied = false;
+        updateData.emailOtp = emailOtp;
+        updateData.emailOtpExpire = Date.now() + 5 * 60 * 1000;
+        await sendVerificationEmail(email, emailOtp);
+      }
+    }
+
+    // Mobile restriction logic
+    if (mobileNo) {
+      let formattedMobile;
+      try {
+        formattedMobile = normalizeIndianMobile(mobileNo);
+      } catch (e) {
+        return commonUtils.sendErrorResponse(req, res, e.message);
+      }
+
+      // If user already has a mobile and it's different
+      if (user.mobileNo && user.mobileNo.toString() !== formattedMobile) {
+        console.log("Blocking mobile change:", {
+          existing: user.mobileNo,
+          new: formattedMobile,
+        });
+        return commonUtils.sendErrorResponse(
+          req,
+          res,
+          "Existing mobile number cannot be changed as it is used for login. You can only add missing fields.",
+        );
+      }
+
+      // If mobile is not set, allow adding it
+      if (!user.mobileNo) {
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        updateData.mobileNo = formattedMobile;
+        updateData.isMobileVerfied = false;
+        updateData.otp = otp;
+        updateData.otpExpire = Date.now() + 5 * 60 * 1000;
+
+        const mobileForSms = `+91${formattedMobile}`;
+        await sendOtp(mobileForSms, otp);
+      }
+    }
+
+    console.log("Fields to update:", updateData);
+
+    // Update the user
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateData },
+      { new: true, runValidators: true },
+    );
+
+    return commonUtils.sendSuccessResponse(
+      req,
+      res,
+      "Profile updated successfully",
+      updatedUser,
+    );
+  } catch (err) {
+    console.error("Profile update error:", err);
+    return commonUtils.sendErrorResponse(
+      req,
+      res,
+      "Internal Server Error",
+      null,
+    );
+  }
 };
-
-
-
 
 //==========================update user
 

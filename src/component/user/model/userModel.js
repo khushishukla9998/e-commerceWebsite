@@ -11,8 +11,8 @@ const userSchema = mongoose.Schema({
     },
     email: {
         type: String,
-        unique: true,
-        sparse:true,
+      //  unique: true,
+     //   sparse:true,
     },
     password: {
         type: String,
@@ -20,8 +20,8 @@ const userSchema = mongoose.Schema({
     },
     mobileNo:{
      type:Number,
-    unique: true,
-      sparse:true,
+   // unique: true,
+    //  sparse:true,
     },
     profileImage: {
         type: String,

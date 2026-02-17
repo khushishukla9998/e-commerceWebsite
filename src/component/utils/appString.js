@@ -138,4 +138,11 @@ module.exports = {
 
   NOT_BOTH: "Use either email or mobile no. !!! NOT both",
   REQUIRED: "email OR mobile no is required",
+
+  //=========promo============
+  INVALID_PROMO:" invalid promo type",
+    INVALID_PROMO_DISCOUNT:" invalid discount type",
+    EXCEED:"Percenege can not exceed by 100",
+    DATE_REQUUIRED:"Dates are required for automatic promo",
+    PROMO_CREATES:" promo created "
 };
