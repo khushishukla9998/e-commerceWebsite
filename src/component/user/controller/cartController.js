@@ -206,9 +206,32 @@ const removeCartItem = async (req, res) => {
     }
 }
 
+const validatePromo = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { orderAmount, code } = req.body;
+
+        if (!orderAmount || isNaN(orderAmount)) {
+            return commonUtils.sendErrorResponse(req, res, appString.AMOUNT_REQUIRED, null, 400);
+        }
+
+        const result = await commonUtils.calculatePromoDiscount(userId, Number(orderAmount), code || null);
+
+        return commonUtils.sendSuccessResponse(req, res, appString.PROMO_VALIDATED, {
+            discount: result.totalDiscount,
+            appliedPromos: result.appliedPromos,
+            promoMessages: result.promoMessages,
+            finalAmount: Math.max(0, Number(orderAmount) - result.totalDiscount)
+        });
+    } catch (err) {
+        return commonUtils.sendErrorResponse(req, res, err.message);
+    }
+};
+
 module.exports = {
     addToCart,
     getCart,
     updateCartItem,
-    removeCartItem
+    removeCartItem,
+    validatePromo
 };

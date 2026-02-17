@@ -15,7 +15,9 @@ const razoprpay = new Razorpay({
   key_secret: config.RAZORPAY_SECRETE_KEY,
 });
 
-//=============palce order ==================
+// ============================================================
+// PLACE ORDER
+// ============================================================
 
 const { applyPromoDiscount } = commonUtils;
 
@@ -55,14 +57,10 @@ const placeOrder = async (req, res) => {
       );
     }
 
-    const setting = await paymentSetting.findOne();
+    let setting = await paymentSetting.findOne();
     if (!setting) {
-      return commonUtils.sendErrorResponse(
-        req,
-        res,
-        appString.METHOD_FAILED,
-        null,
-      );
+      // Proactive: Use default payment method (Razorpay) if not explicitly set by admin
+      setting = { paymentMethod: ENUM.PAYMENT_METHOD.RAZOR_PAY };
     }
 
     // Get Cart
@@ -121,13 +119,18 @@ const placeOrder = async (req, res) => {
 
     //>>> APPLY DISCOUNT HERE <<<
     let discount = 0;
+    let appliedPromos = [];
+    let promoMessages = [];
     try {
-      discount = await applyPromoDiscount(userId, totalPrice, code || null);
+      const result = await commonUtils.calculatePromoDiscount(userId, totalPrice, code || null);
+      discount = result.totalDiscount;
+      appliedPromos = result.appliedPromos;
+      promoMessages = result.promoMessages;
     } catch (promoErr) {
       return commonUtils.sendErrorResponse(req, res, promoErr.message, null);
     }
 
-    const payableAmount = Math.max(totalPrice - discount);
+    const payableAmount = Math.max(0, totalPrice - discount);
 
     // Create Order
     const newOrder = await Order.create({
@@ -141,7 +144,11 @@ const placeOrder = async (req, res) => {
       status: ENUM.ORDER_STATUS.PENDING, // default pending
       paymentStatus: ENUM.PAYMENT_STATUS.PENDING, // default pending
       orderDate: new Date(),
+      appliedPromos: appliedPromos.map(p => p.id), // Store IDs in DB
     });
+
+    // Record usage now that order is created
+    await commonUtils.recordPromoUsage(userId, appliedPromos.map(p => p.id));
 
     const paymentMethod = setting.paymentMethod;
     let paymentResponse = null;
@@ -205,7 +212,7 @@ const placeOrder = async (req, res) => {
       req,
       res,
       appString.ORDER_PLACED_SUCCESS,
-      { newOrder, paymentResponse, paymentMethod, discount, payableAmount },
+      { newOrder, paymentResponse, paymentMethod, discount, payableAmount, appliedPromos, promoMessages },
     );
   } catch (err) {
     console.error("Place Order Error:", err);

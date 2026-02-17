@@ -1,3 +1,6 @@
+/**
+ * ALL USER-FACING STRING MESSAGES
+ */
 module.exports = {
   REGISTRATION_ERROR: "Registration error!",
   REGISTRATION_FAILED: "Registration failed!",
@@ -136,13 +139,34 @@ module.exports = {
   PAYMENT_METHOD_CREATED: " Payment method updated",
   METHOD_FAILED: "Payment method not configured by admin ",
 
+  // Promo Validations
+  PROMO_INVALID_VALUE: "Discount value must be a positive number.",
+  PROMO_PERCENT_LIMIT: "Percentage discount cannot exceed 100%.",
+  PROMO_INVALID_DATES: "End date must be greater than or equal to start date.",
+  PROMO_DATES_REQUIRED: "Start and end dates are required for automatic promos.",
+  PROMO_CANNOT_MODIFY_USED: "Cannot modify or delete a promo code that has already been used.",
+  PROMO_MIN_AMOUNT_NOT_MET: "Minimum order amount not met for promo",
+  PROMO_ALREADY_USED_AUTO: "Automatic promo already used by you",
+  PROMO_NOT_ACTIVE: "Promo code is not active",
+
   NOT_BOTH: "Use either email or mobile no. !!! NOT both",
   REQUIRED: "email OR mobile no is required",
 
   //=========promo============
-  INVALID_PROMO:" invalid promo type",
-    INVALID_PROMO_DISCOUNT:" invalid discount type",
-    EXCEED:"Percenege can not exceed by 100",
-    DATE_REQUUIRED:"Dates are required for automatic promo",
-    PROMO_CREATES:" promo created "
+  INVALID_PROMO: "Invalid promo type. Must be 1 (automatic) or 2 (manual).",
+  INVALID_PROMO_DISCOUNT: "Invalid discount type. Must be 1 (flat) or 2 (percentage).",
+  EXCEED: "Percentage discount cannot exceed 100%.",
+  DATE_REQUUIRED: "Start date and End date are required for automatic promos.",
+  PROMO_CREATED: "Promo code created successfully.",
+  PROMO_NOT_FOUND: "Promo code not found.",
+  PROMO_UPDATED: "Promo code updated successfully.",
+  PROMO_DELETED: "Promo code deleted successfully.",
+  PROMO_FETCHED: "Promo codes fetched successfully.",
+  PROMO_ENABLED: "Promo code enabled successfully.",
+  PROMO_DISABLED: "Promo code disabled successfully.",
+  PROMO_USED: "Cannot update or delete promo code because it has already been used.",
+  PROMO_ALREADY_USED: "Promo code has already been used",
+  INVALID_PROMO_CODE: "Invalid or ineligible promo code",
+  AMOUNT_REQUIRED: "Order amount is required to calculate discount.",
+  PROMO_VALIDATED: "Promo details fetched.",
 };

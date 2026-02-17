@@ -1,14 +1,19 @@
 // admin/model/Promo.js
 const mongoose = require("mongoose");
 const moment = require("moment");
+const ENUM = require("../../utils/enum");
 
 const promoSchema = new mongoose.Schema(
   {
     code: { type: String, required: true, uppercase: true, unique: true },
-    type: { type: String, enum: ["automatic", "manual"], required: true },
+    type: {
+      type: Number,
+      enum: [ENUM.PROMO_TYPE.AUTOMATIC, ENUM.PROMO_TYPE.MANUAL],
+      required: true
+    },
     discountType: {
-      type: String,
-      enum: ["flat", "percentage"],
+      type: Number,
+      enum: [ENUM.DISCOUNT_TYPE.FLAT, ENUM.DISCOUNT_TYPE.PERCENTAGE],
       required: true,
     },
     discountValue: { type: Number, required: true },

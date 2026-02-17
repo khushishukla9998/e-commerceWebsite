@@ -8,42 +8,12 @@ const appStrings = require("./appString");
 
 const Promo = require("../admin/model/promoModel");
 const UsedPromo = require("../user/model/usedPromo");
-const moment = require("moment")
+const moment = require("moment");
+const ENUM = require("./enum");
 
-// const crypto = require('crypto');
-
-// const Secret = "user";
-
-// const encrptUserId = (ObjectId) =>{
-//   return Buffer
-//   .from (ObjectId+Secret).toString("base64")
-// };
-
-// const dcryptUserId = (encrptUserId) =>{
-//  const decode = Buffer
-//   .from (encrptUserId ,"base64").toString("utf8")
-
-//   return decode.replace(Secret)
-// };
-
-// function encrypt(text) {
-//     const iv = crypto.randomBytes(IV_LENGTH);
-//     const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
-//     let encrypted = cipher.update(text);
-//     encrypted = Buffer.concat([encrypted, cipher.final()]);
-
-//     return iv.toString('hex') + ':' + encrypted.toString('hex');
-// }
-
-// function decrypt(text) {
-//     const parts = text.split(':');
-//     const iv = Buffer.from(parts.shift(), 'hex');
-//     const encryptedText = Buffer.from(parts.join(':'), 'hex');
-//     const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
-//     let decrypted = decipher.update(encryptedText);
-//     decrypted = Buffer.concat([decrypted, decipher.final()]);
-//     return decrypted.toString();
-// }
+// ============================================================
+// RESPONSE UTILITIES
+// ============================================================
 
 //===================successResponse===========================
 function sendSuccessResponse(req, res, message, data = null, status = 200) {
@@ -167,13 +137,15 @@ const checkUser = async (req, res, next) => {
 
 
 
+// ==================== PROMO DISCOUNT LOGIC ===================
+
 const calculateDiscount = (amount, promo) => {
-  if (promo.discountType === "flat") {
+  if (promo.discountType === ENUM.DISCOUNT_TYPE.FLAT) {
     const value = Number(promo.discountValue) || 0;
     return Math.min(value, amount);
   }
 
-  if (promo.discountType === "percentage") {
+  if (promo.discountType === ENUM.DISCOUNT_TYPE.PERCENTAGE) {
     const percent = Number(promo.discountValue) || 0;
     const discountAmount = (amount * percent) / 100;
     return Math.min(discountAmount, amount);
@@ -182,64 +154,74 @@ const calculateDiscount = (amount, promo) => {
   return 0;
 };
 
-async function applyPromoDiscount(userId, orderAmount, manualCode = null) {
-  console.log("applyPromoDiscount input:", { userId, orderAmount, manualCode });
-
-  let totalDiscount = 0;
+/**
+ * Calculates possible discounts without recording usage.
+ * Returns { totalDiscount, appliedPromos }
+ */
+async function calculatePromoDiscount(userId, orderAmount, manualCode = null) {
+  let currentOrderAmount = orderAmount;
+  const appliedPromos = [];
+  const promoMessages = [];
   const now = new Date();
-  const todayStr = moment(now).format("YYYY-MM-DD"); 
-  console.log("now",now);
-  
-  // AUTOMATIC PROMOS
+  const todayStr = moment(now).format("YYYY-MM-DD");
+
+  // 1. AUTOMATIC PROMOS
   const automaticPromos = await Promo.find({
-    type: "automatic",
+    type: ENUM.PROMO_TYPE.AUTOMATIC,
     isActive: true,
-    startDate: { $lte: todayStr },
-    endDate: { $gte: todayStr },
-    minOrderAmount: { $lte: orderAmount },
   });
-  console.log("automaticPromos count:", automaticPromos.length);
 
   for (const promo of automaticPromos) {
+    const startDateStr = moment(promo.startDate).format("YYYY-MM-DD");
+    const endDateStr = moment(promo.endDate).format("YYYY-MM-DD");
+
+    if (todayStr < startDateStr || todayStr > endDateStr) {
+      continue;
+    }
+
+    if (orderAmount < promo.minOrderAmount) {
+      promoMessages.push(`Automatic promo ${promo.code} failed: ${appStrings.PROMO_MIN_AMOUNT_NOT_MET} (${promo.minOrderAmount})`);
+      continue;
+    }
+
     const alreadyUsed = await UsedPromo.findOne({
       user: userId,
       promo: promo._id,
     });
-    if (alreadyUsed) continue;
+    if (alreadyUsed) {
+      promoMessages.push(`Automatic promo ${promo.code} failed: ${appStrings.PROMO_ALREADY_USED_AUTO}`);
+      continue;
+    }
 
-    const discount = calculateDiscount(orderAmount, promo);
+    const discount = calculateDiscount(currentOrderAmount, promo);
     if (discount <= 0) continue;
 
-    totalDiscount += discount;
-
-    await UsedPromo.create({
-      user: userId,
-      promo: promo._id,
+    currentOrderAmount -= discount;
+    appliedPromos.push({
+      id: promo._id,
+      code: promo.code,
+      type: promo.type,
+      discount: discount
     });
   }
 
-  // MANUAL PROMO
+  // 2. MANUAL PROMO
   if (manualCode) {
     const pureCode = manualCode.trim().toUpperCase();
-    console.log("Looking up manual code:", pureCode);
-    console.log("todayStr:", todayStr, "orderAmount:", orderAmount);
 
-    const rawPromo = await Promo.findOne({ code: pureCode });
-    console.log("Raw promo (only by code):", rawPromo);
-
+    // Manual is NOT date-based as per requirements
     const manualPromo = await Promo.findOne({
       code: pureCode,
-      type: "manual",
+      type: ENUM.PROMO_TYPE.MANUAL,
       isActive: true,
-      startDate: { $lte: todayStr },
-      endDate: { $gte: todayStr },
-      minOrderAmount: { $lte: orderAmount },
     });
 
-    console.log("Filtered manualPromo:", manualPromo);
-
     if (!manualPromo) {
-      throw new Error("Invalid or ineligible promo code");
+      throw new Error(appStrings.INVALID_PROMO_CODE);
+    }
+
+    if (orderAmount < manualPromo.minOrderAmount) {
+      throw new Error(`${appStrings.PROMO_MIN_AMOUNT_NOT_MET}: ${manualPromo.minOrderAmount}`);
     }
 
     const alreadyUsedManual = await UsedPromo.findOne({
@@ -248,36 +230,46 @@ async function applyPromoDiscount(userId, orderAmount, manualCode = null) {
     });
 
     if (alreadyUsedManual) {
-      throw new Error("Promo already used");
+      throw new Error(appStrings.PROMO_ALREADY_USED);
     }
 
-    const manualDiscount = calculateDiscount(orderAmount, manualPromo);
-    console.log("Manual promo discount:", manualDiscount);
+    const manualDiscount = calculateDiscount(currentOrderAmount, manualPromo);
 
-    if (manualDiscount <= 0) {
-      throw new Error("Promo configuration invalid");
+    if (manualDiscount > 0) {
+      currentOrderAmount -= manualDiscount;
+      appliedPromos.push({
+        id: manualPromo._id,
+        code: manualPromo.code,
+        type: manualPromo.type,
+        discount: manualDiscount
+      });
     }
-
-    totalDiscount += manualDiscount;
-
-    await UsedPromo.create({
-      user: userId,
-      promo: manualPromo._id,
-    });
   }
 
-  if (totalDiscount > orderAmount) {
-    totalDiscount = orderAmount;
-  }
+  const totalDiscount = orderAmount - currentOrderAmount;
 
-  console.log("Total discount to apply:", totalDiscount);
-  return totalDiscount;
+  return { totalDiscount, appliedPromos, promoMessages };
 }
 
-module.exports = {
-  applyPromoDiscount,
-  calculateDiscount, 
-};
+/**
+ * Records that the promos have been used by the user.
+ */
+async function recordPromoUsage(userId, promoIds) {
+  if (!promoIds || promoIds.length === 0) return;
+
+  const usageRecords = promoIds.map(promoId => ({
+    user: userId,
+    promo: promoId
+  }));
+
+  try {
+    // Using insertMany with ordered: false to skip duplicates if any (though logic should prevent them)
+    await UsedPromo.insertMany(usageRecords, { ordered: false });
+  } catch (err) {
+    console.error("Error recording promo usage:", err);
+    // We don't necessarily want to crash the order if this fails, but it's important.
+  }
+}
 
 module.exports = {
   routeArray,
@@ -285,5 +277,6 @@ module.exports = {
   sendErrorResponse,
   storeAcessTokenInCookie,
   storeRefreshTokenInCookie,
-  applyPromoDiscount,
+  calculatePromoDiscount,
+  recordPromoUsage,
 };

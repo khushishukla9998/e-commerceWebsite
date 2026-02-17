@@ -124,15 +124,35 @@ module.exports = [
   {
     path: "/setPaymentMethod",
     method: "put",
-    controller:adminController.setPaymentMethodd,
+    controller: adminController.setPaymentMethodd,
   },
 
 
   //=================promo===================
-{
+  {
     path: "/createPromo",
     method: "post",
-    controller:PromoController.createPromo,
+    controller: PromoController.createPromo,
+  },
+  {
+    path: "/updatePromo/:promoId",
+    method: "put",
+    controller: PromoController.updatePromo,
+  },
+  {
+    path: "/deletePromo/:promoId",
+    method: "delete",
+    controller: PromoController.deletePromo,
+  },
+  {
+    path: "/listPromos",
+    method: "get",
+    controller: PromoController.listPromos,
+  },
+  {
+    path: "/togglePromoStatus/:promoId",
+    method: "patch",
+    controller: PromoController.togglePromoStatus,
   },
 
 ];

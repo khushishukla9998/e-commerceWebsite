@@ -65,15 +65,27 @@ const orderSchema = new mongoose.Schema(
       type: String,
     },
 
-     razorpayOrderId: {
+    razorpayOrderId: {
       type: String,
     },
-     razorpayPayementId: {
+    razorpayPayementId: {
       type: String,
     },
-    razorpaySignature:{
-      type:String
-    }
+    razorpaySignature: {
+      type: String
+    },
+    discount: {
+      type: Number,
+      default: 0,
+    },
+    finalAmount: {
+      type: Number,
+      required: true,
+    },
+    appliedPromos: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Promo",
+    }],
   },
   { timestamps: true },
 );

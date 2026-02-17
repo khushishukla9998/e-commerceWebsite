@@ -1,3 +1,6 @@
+/**
+ * DEFINITION OF ALL ENUMS IN THE SYSTEM
+ */
 module.exports = {
   //user status
   USER_STATUS: {
@@ -32,5 +35,13 @@ module.exports = {
     STRIPE: 1,
     RAZOR_PAY: 2,
     COD: 3,
+  },
+  PROMO_TYPE: {
+    AUTOMATIC: 1,
+    MANUAL: 2,
+  },
+  DISCOUNT_TYPE: {
+    FLAT: 1,
+    PERCENTAGE: 2,
   },
 };

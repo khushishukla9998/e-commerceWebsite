@@ -124,6 +124,11 @@ module.exports = [
     method: "delete",
     controller: cartController.removeCartItem,
   },
+  {
+    path: "/validatePromo",
+    method: "post",
+    controller: cartController.validatePromo,
+  },
 
   //*******************=============ORDER=====================*************************
   {
@@ -156,44 +161,44 @@ module.exports = [
     path: "/getProduct/:productId",
     method: "get",
     controller: productController.getProductById,
-    isPublic: true, 
+    isPublic: true,
 
   },
-    {
+  {
     path: "/emailVerified",
     method: "post",
     controller: controller.verifyEmailOtp,
-    isPublic: true, 
-    
+    isPublic: true,
+
   },
-     {
+  {
     path: "/mobileVerified",
     method: "post",
     controller: controller.verifyMbileOtp,
-    isPublic: true, 
-    
+    isPublic: true,
+
   },
 
-   {
+  {
     path: "/resendEmailOtp",
     method: "post",
     controller: controller.resendEmailOtp,
-    isPublic: true, 
-    
+    isPublic: true,
+
   },
 
-   {
+  {
     path: "/resendMobileOtp",
     method: "post",
     controller: controller.resendMobileOtp,
-    isPublic: true, 
-    
+    isPublic: true,
+
   },
-   {
+  {
     path: "/updateProfile",
     method: "put",
     controller: controller.updateProfile,
 
-    
+
   },
 ];
