@@ -133,9 +133,6 @@ const checkUser = async (req, res, next) => {
 
 
 
-// ==================== PROMO DISCOUNT LOGIC ===================
-
-
 
 // ==================== PROMO DISCOUNT LOGIC ===================
 
@@ -154,10 +151,7 @@ const calculateDiscount = (amount, promo) => {
   return 0;
 };
 
-/**
- * Calculates possible discounts without recording usage.
- * Returns { totalDiscount, appliedPromos }
- */
+
 async function calculatePromoDiscount(userId, orderAmount, manualCode = null) {
   let currentOrderAmount = orderAmount;
   const appliedPromos = [];
@@ -209,7 +203,7 @@ async function calculatePromoDiscount(userId, orderAmount, manualCode = null) {
   if (manualCode) {
     const pureCode = manualCode.trim().toUpperCase();
 
-    // Manual is NOT date-based as per requirements
+    // Manual is NOT date-based 
     const manualPromo = await Promo.findOne({
       code: pureCode,
       type: ENUM.PROMO_TYPE.MANUAL,
@@ -263,11 +257,10 @@ async function recordPromoUsage(userId, promoIds) {
   }));
 
   try {
-    // Using insertMany with ordered: false to skip duplicates if any (though logic should prevent them)
     await UsedPromo.insertMany(usageRecords, { ordered: false });
   } catch (err) {
     console.error("Error recording promo usage:", err);
-    // We don't necessarily want to crash the order if this fails, but it's important.
+  
   }
 }
 

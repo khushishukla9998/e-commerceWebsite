@@ -3,6 +3,7 @@ const adminController = require("./controller/adminController");
 const categoryController = require("./controller/categoryController");
 const productController = require("./controller/productController");
 const PromoController = require("../admin/controller/promoController")
+const MemberController = require("../admin/controller/menberShipPlanController")
 
 module.exports = [
   //   {
@@ -155,4 +156,10 @@ module.exports = [
     controller: PromoController.togglePromoStatus,
   },
 
+  //======= member Ship ============
+ {
+    path: "/memberCreate",
+    method: "post",
+    controller: MemberController.createMemberShip,
+  },
 ];

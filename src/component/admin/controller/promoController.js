@@ -70,9 +70,8 @@ const createPromo = async (req, res) => {
   }
 };
 
-/**
- * Admin: Update a Promo Code
- */
+/** *==================Update a Promo Code===================== */
+
 const updatePromo = async (req, res) => {
   try {
     const { promoId } = req.params;
@@ -103,14 +102,14 @@ const updatePromo = async (req, res) => {
   }
 };
 
-/**
- * Admin: Delete a Promo Code
- */
+
+/*    ==================Delete a Promo Code===================== */
+
 const deletePromo = async (req, res) => {
   try {
     const { promoId } = req.params;
 
-    // Logic: If we can't update used promos, we probably shouldn't delete them either (for record keeping)
+  
     const UsedPromo = require("../../user/model/usedPromo");
     const usageCount = await UsedPromo.countDocuments({ promo: promoId });
 

@@ -169,4 +169,10 @@ module.exports = {
   INVALID_PROMO_CODE: "Invalid or ineligible promo code",
   AMOUNT_REQUIRED: "Order amount is required to calculate discount.",
   PROMO_VALIDATED: "Promo details fetched.",
+  INVALID_PROMO_ID:"Invalid promo code",
+
+  //==================  Member Ship ==============
+  PLAN_CREATED:"Member-Ship plan is created ",
+  PLAN_NOT_EXIST:"Plan not found",
+  
 };
