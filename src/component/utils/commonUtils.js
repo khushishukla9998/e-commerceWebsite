@@ -10,6 +10,9 @@ const Promo = require("../admin/model/promoModel");
 const UsedPromo = require("../user/model/usedPromo");
 const moment = require("moment");
 const ENUM = require("./enum");
+const UserMembership = require("../user/model/userMemberShip");
+const Order = require("../user/model/orderModel");
+const RewardHistory = require("../user/model/rewardHistoryModel");
 
 // ============================================================
 // RESPONSE UTILITIES
@@ -260,8 +263,124 @@ async function recordPromoUsage(userId, promoIds) {
     await UsedPromo.insertMany(usageRecords, { ordered: false });
   } catch (err) {
     console.error("Error recording promo usage:", err);
-  
+
   }
+}
+
+// ==================== MEMBERSHIP HELPERS ====================
+
+/**
+ * Checks if the user is allowed to place an order based on membership rules.
+ * Rule: 1st order is free, from 2nd order onwards membership is compulsory.
+ */
+async function checkMembershipRequirement(userId) {
+  const orderCount = await Order.countDocuments({
+    userId,
+    paymentStatus: ENUM.PAYMENT_STATUS.SUCCESS,
+  });
+
+  if (orderCount === 0) {
+    return { allowed: true, message: "First order is free!" };
+  }
+
+  const activeMembership = await UserMembership.findOne({
+    userId,
+    status: ENUM.MEMBERSHIP_STATUS.ACTIVE,
+    endDate: { $gt: new Date() },
+  });
+
+  if (!activeMembership) {
+    return {
+      allowed: false,
+      message: "Membership is compulsory from the second order onwards.",
+    };
+  }
+
+  return { allowed: true, membership: activeMembership };
+}
+
+/**
+ * Calculates discounts, free delivery, and reward points based on membership.
+ */
+async function getMembershipBenefits(userId, orderAmount) {
+  const activeMembership = await UserMembership.findOne({
+    userId,
+    status: ENUM.MEMBERSHIP_STATUS.ACTIVE,
+    endDate: { $gt: new Date() },
+  }).populate("planId");
+
+  const benefits = {
+    discount: 0,
+    freeDelivery: false,
+    rewardPoints: 0,
+    planName: null,
+  };
+
+  if (!activeMembership || !activeMembership.planId) {
+    return benefits;
+  }
+
+  const plan = activeMembership.planId;
+  benefits.planName = plan.name;
+
+  // 1. Discount Calculation
+  if (orderAmount > plan.discountMinOrderAmount) {
+    let discount = (orderAmount * plan.discountPercent) / 100;
+    if (plan.maxDiscountLimit > 0) {
+      discount = Math.min(discount, plan.maxDiscountLimit);
+    }
+    benefits.discount = discount;
+  }
+
+  // 2. Free Delivery Calculation
+  if (plan.isFreeDeliveryAll) {
+    benefits.freeDelivery = true;
+  } else if (orderAmount >= plan.freeDeliveryMinAmount) {
+    benefits.freeDelivery = true;
+  }
+
+  // 3. Reward Points Calculation
+  const isFirstOrderAfterMembership = activeMembership.orderUsedAfterMembership === 0;
+  if (isFirstOrderAfterMembership) {
+    benefits.rewardPoints = plan.firstOrderRewardPoints;
+  } else {
+    // slab based
+    const slabs = plan.rewardSlab; // { "200": 10, "500": 15 ... }
+    if (slabs) {
+      const sortedSlabs = Object.keys(slabs)
+        .map(Number)
+        .sort((a, b) => b - a); // descending
+      for (const minAmount of sortedSlabs) {
+        if (orderAmount >= minAmount) {
+          benefits.rewardPoints = slabs[minAmount];
+          break;
+        }
+      }
+    }
+  }
+
+  return benefits;
+}
+
+/**
+ * Updates user reward points and logs history.
+ */
+async function applyRewardPoints(userId, points, orderId, description) {
+  if (points <= 0) return;
+
+  await RewardHistory.create({
+    userId,
+    orderId,
+    points,
+    type: ENUM.REWARD_TYPE.EARNED,
+    description,
+  });
+
+  // Track usage in membership
+  await UserMembership.findOneAndUpdate(
+    { userId, status: ENUM.MEMBERSHIP_STATUS.ACTIVE },
+    { $inc: { orderUsedAfterMembership: 1 } }
+  );
 }
 
 module.exports = {
@@ -272,4 +391,7 @@ module.exports = {
   storeRefreshTokenInCookie,
   calculatePromoDiscount,
   recordPromoUsage,
+  checkMembershipRequirement,
+  getMembershipBenefits,
+  applyRewardPoints,
 };

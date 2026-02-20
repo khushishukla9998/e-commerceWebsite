@@ -17,6 +17,9 @@ const Order = require("../e-commerceWebsite/src/component/user/model/orderModel"
 const Cart = require("../e-commerceWebsite/src/component/user/model/cartModel");
 const crypto = require("crypto");
 const Product = require("../e-commerceWebsite/src/component/admin/model/productModel");
+const UserMembership = require("../e-commerceWebsite/src/component/user/model/userMemberShip");
+const MembershipPlan = require("../e-commerceWebsite/src/component/admin/model/memberShipPlanModel");
+const User = require("../e-commerceWebsite/src/component/user/model/userModel");
 
 const app = express();
 const port = 3001;
@@ -75,13 +78,19 @@ app.post(
               cart.totalPrice = 0;
               await cart.save();
             }
+
+            // APPLY REWARD POINTS
+            if (order.rewardPointsEarned > 0) {
+              await commonUtils.applyRewardPoints(order.userId, order.rewardPointsEarned, order._id, `Earned from order ${order._id}`);
+              await User.findByIdAndUpdate(order.userId, { $inc: { rewardPoints: order.rewardPointsEarned } });
+            }
           }
           break;
         }
         case "payment.failed": {
           const payment = event.payload.payment.entity;
           const order = await Order.findOne({ razorpayOrderId: payment.order_id });
-          console.log("order",order)
+          console.log("order", order)
           if (order) {
             order.paymentStatus = ENUM.PAYMENT_STATUS.FAILED
             order.status = ENUM.ORDER_STATUS.FAILED
@@ -102,173 +111,207 @@ app.post(
   },
 );
 
-  //==========stripe webhook=====================/.
+//==========stripe webhook=====================/.
 
-  app.post(
-    "/api/webhook",
-    bodyparser.raw({ type: "application/json" }),
-    async (req, res) => {
-      console.log("hit ---Stripe--- webhook");
+app.post(
+  "/api/webhook",
+  bodyparser.raw({ type: "application/json" }),
+  async (req, res) => {
+    console.log("hit ---Stripe--- webhook");
 
-      const sig = req.headers["stripe-signature"];
-      let event;
-      try {
-        event = stripe.webhooks.constructEvent(
-          req.body,
-          sig,
-          config.STRIPE_WEBHOOK_SECRET,
-        );
-      } catch (err) {
-        console.log("webhook signature verification failed", err.message);
-        return commonUtils.sendErrorResponse(req, res, err.message, null);
-      }
+    const sig = req.headers["stripe-signature"];
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        config.STRIPE_WEBHOOK_SECRET,
+      );
+    } catch (err) {
+      console.log("webhook signature verification failed", err.message);
+      return commonUtils.sendErrorResponse(req, res, err.message, null);
+    }
 
-      console.log("stripe event:", event.type);
+    console.log("stripe event:", event.type);
 
-      try {
-        switch (event.type) {
-          // 1. PaymentIntent created
-          case "payment_intent.created": {
-            const paymentIntent = event.data.object;
-            console.log("payment_intent.created for:", paymentIntent.id);
+    try {
+      switch (event.type) {
+        // 0. Checkout Session Completed (for Membership)
+        case "checkout.session.completed": {
+          const session = event.data.object;
+          console.log("checkout.session.completed for:", session.id);
 
-            const order = await Order.findOne({
-              stripePaymentIntentId: paymentIntent.id,
-            });
-            console.log("order found:", order ? order._id : null);
+          // Check if this session is for a membership (using metadata)
+          if (session.metadata && session.metadata.userId && session.metadata.planId) {
+            const { userId, planId } = session.metadata;
+            const plan = await MembershipPlan.findById(planId);
 
-            if (order) {
-              console.log("before update:", order.paymentStatus, order.status);
+            if (plan) {
+              const endDate = new Date();
+              endDate.setMonth(endDate.getMonth() + plan.durationMonth);
 
-              order.paymentStatus = ENUM.PAYMENT_STATUS.PENDING;
-              order.status = ENUM.ORDER_STATUS.PENDING;
-
-              await order.save();
-              console.log("after update:", order.paymentStatus, order.status);
+              await UserMembership.create({
+                userId,
+                planId,
+                stripeCustomerId: session.customer,
+                stripeSubscriptionId: session.subscription,
+                endDate,
+                status: ENUM.MEMBERSHIP_STATUS.ACTIVE,
+              });
+              console.log(`Membership activated for user ${userId} via webhook.`);
             }
-            break;
           }
-
-          case "payment_intent.requires_action":
-          case "payment_intent.processing": {
-            const paymentIntent = event.data.object;
-            console.log(`${event.type} for:`, paymentIntent.id);
-
-            const order = await Order.findOne({
-              stripePaymentIntentId: paymentIntent.id,
-            });
-            console.log("order found:", order ? order._id : null);
-
-            if (order) {
-              order.paymentStatus = ENUM.PAYMENT_STATUS.PENDING;
-              order.status = ENUM.ORDER_STATUS.PENDING;
-              await order.save();
-            }
-            break;
-          }
-
-          // 3. Payment succeeded
-          case "payment_intent.succeeded": {
-            const paymentIntent = event.data.object;
-            console.log("payment_intent.succeeded for:", paymentIntent.id);
-
-            const order = await Order.findOne({
-              stripePaymentIntentId: paymentIntent.id,
-            });
-            console.log("order found:", order ? order._id : null);
-
-            if (
-              order &&
-              (order.paymentStatus !== ENUM.PAYMENT_STATUS.SUCCESS ||
-                order.status !== ENUM.ORDER_STATUS.SUCCESS)
-            ) {
-              console.log("before update:", order.paymentStatus, order.status);
-
-              order.paymentStatus = ENUM.PAYMENT_STATUS.SUCCESS;
-              order.status = ENUM.ORDER_STATUS.SUCCESS;
-
-              await order.save();
-              console.log("after update:", order.paymentStatus, order.status);
-
-              // Decrement stock for each item in the order
-              const Product = require("./src/component/admin/model/productModel");
-              for (const item of order.items) {
-                await Product.findByIdAndUpdate(item.productId, {
-                  $inc: { quantity: -item.quantity },
-                });
-                console.log(
-                  `Stock decremented for product: ${item.productId} by ${item.quantity}`,
-                );
-              }
-
-              const cart = await Cart.findOne({ userId: order.userId });
-              console.log("cart found:", !!cart);
-              if (cart) {
-                cart.items = [];
-                cart.totalPrice = 0;
-                await cart.save();
-              }
-            }
-            break;
-          }
-
-          // 4. Payment failed
-          case "payment_intent.payment_failed": {
-            const paymentIntent = event.data.object;
-            console.log("payment_intent.payment_failed for:", paymentIntent.id);
-
-            const order = await Order.findOne({
-              stripePaymentIntentId: paymentIntent.id,
-            });
-            console.log("order found:", order ? order._id : null);
-
-            if (order) {
-              console.log("before update:", order.paymentStatus, order.status);
-
-              order.paymentStatus = ENUM.PAYMENT_STATUS.FAILED;
-              order.status = ENUM.ORDER_STATUS.FAILED;
-
-              await order.save();
-              console.log("after update:", order.paymentStatus, order.status);
-            }
-            break;
-          }
-
-          // 5. Canceled
-          case "payment_intent.canceled": {
-            const paymentIntent = event.data.object;
-            console.log("payment_intent.canceled for:", paymentIntent.id);
-
-            const order = await Order.findOne({
-              stripePaymentIntentId: paymentIntent.id,
-            });
-            console.log("order found:", order ? order._id : null);
-
-            if (order) {
-              order.paymentStatus =
-                ENUM.PAYMENT_STATUS.CANCELLED || "CANCELLED";
-              order.status = ENUM.ORDER_STATUS.CANCELLED || "CANCELLED";
-              await order.save();
-            }
-            break;
-          }
-
-          default:
-            console.log(`Unhandled event type ${event.type}`);
+          break;
         }
-      } catch (err) {
-        console.error("Error processing webhook:", err);
-        return res
-          .status(500)
-          .json({
-            success: false,
-            message: "Internal Server Error in Webhook",
-          });
-      }
 
-      return res.json({ received: true });
-    },
-  );
+        // 1. PaymentIntent created
+        case "payment_intent.created": {
+          const paymentIntent = event.data.object;
+          console.log("payment_intent.created for:", paymentIntent.id);
+
+          const order = await Order.findOne({
+            stripePaymentIntentId: paymentIntent.id,
+          });
+          console.log("order found:", order ? order._id : null);
+
+          if (order) {
+            console.log("before update:", order.paymentStatus, order.status);
+
+            order.paymentStatus = ENUM.PAYMENT_STATUS.PENDING;
+            order.status = ENUM.ORDER_STATUS.PENDING;
+
+            await order.save();
+            console.log("after update:", order.paymentStatus, order.status);
+          }
+          break;
+        }
+
+        case "payment_intent.requires_action":
+        case "payment_intent.processing": {
+          const paymentIntent = event.data.object;
+          console.log(`${event.type} for:`, paymentIntent.id);
+
+          const order = await Order.findOne({
+            stripePaymentIntentId: paymentIntent.id,
+          });
+          console.log("order found:", order ? order._id : null);
+
+          if (order) {
+            order.paymentStatus = ENUM.PAYMENT_STATUS.PENDING;
+            order.status = ENUM.ORDER_STATUS.PENDING;
+            await order.save();
+          }
+          break;
+        }
+
+        // 3. Payment succeeded
+        case "payment_intent.succeeded": {
+          const paymentIntent = event.data.object;
+          console.log("payment_intent.succeeded for:", paymentIntent.id);
+
+          const order = await Order.findOne({
+            stripePaymentIntentId: paymentIntent.id,
+          });
+          console.log("order found:", order ? order._id : null);
+
+          if (
+            order &&
+            (order.paymentStatus !== ENUM.PAYMENT_STATUS.SUCCESS ||
+              order.status !== ENUM.ORDER_STATUS.SUCCESS)
+          ) {
+            console.log("before update:", order.paymentStatus, order.status);
+
+            order.paymentStatus = ENUM.PAYMENT_STATUS.SUCCESS;
+            order.status = ENUM.ORDER_STATUS.SUCCESS;
+
+            await order.save();
+            console.log("after update:", order.paymentStatus, order.status);
+
+            // Decrement stock for each item in the order
+            const Product = require("./src/component/admin/model/productModel");
+            for (const item of order.items) {
+              await Product.findByIdAndUpdate(item.productId, {
+                $inc: { quantity: -item.quantity },
+              });
+              console.log(
+                `Stock decremented for product: ${item.productId} by ${item.quantity}`,
+              );
+            }
+
+            const cart = await Cart.findOne({ userId: order.userId });
+            console.log("cart found:", !!cart);
+            if (cart) {
+              cart.items = [];
+              cart.totalPrice = 0;
+              await cart.save();
+            }
+
+            // APPLY REWARD POINTS
+            if (order.rewardPointsEarned > 0) {
+              await commonUtils.applyRewardPoints(order.userId, order.rewardPointsEarned, order._id, `Earned from order ${order._id}`);
+              await User.findByIdAndUpdate(order.userId, { $inc: { rewardPoints: order.rewardPointsEarned } });
+            }
+          }
+          break;
+        }
+
+        // 4. Payment failed
+        case "payment_intent.payment_failed": {
+          const paymentIntent = event.data.object;
+          console.log("payment_intent.payment_failed for:", paymentIntent.id);
+
+          const order = await Order.findOne({
+            stripePaymentIntentId: paymentIntent.id,
+          });
+          console.log("order found:", order ? order._id : null);
+
+          if (order) {
+            console.log("before update:", order.paymentStatus, order.status);
+
+            order.paymentStatus = ENUM.PAYMENT_STATUS.FAILED;
+            order.status = ENUM.ORDER_STATUS.FAILED;
+
+            await order.save();
+            console.log("after update:", order.paymentStatus, order.status);
+          }
+          break;
+        }
+
+        // 5. Canceled
+        case "payment_intent.canceled": {
+          const paymentIntent = event.data.object;
+          console.log("payment_intent.canceled for:", paymentIntent.id);
+
+          const order = await Order.findOne({
+            stripePaymentIntentId: paymentIntent.id,
+          });
+          console.log("order found:", order ? order._id : null);
+
+          if (order) {
+            order.paymentStatus =
+              ENUM.PAYMENT_STATUS.CANCELLED || "CANCELLED";
+            order.status = ENUM.ORDER_STATUS.CANCELLED || "CANCELLED";
+            await order.save();
+          }
+          break;
+        }
+
+        default:
+          console.log(`Unhandled event type ${event.type}`);
+      }
+    } catch (err) {
+      console.error("Error processing webhook:", err);
+      return res
+        .status(500)
+        .json({
+          success: false,
+          message: "Internal Server Error in Webhook",
+        });
+    }
+
+    return res.json({ received: true });
+  },
+);
 
 
 app.use(cookieParser());

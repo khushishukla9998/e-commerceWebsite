@@ -156,10 +156,24 @@ module.exports = [
     controller: PromoController.togglePromoStatus,
   },
 
-  //======= member Ship ============
- {
+  {
     path: "/memberCreate",
     method: "post",
     controller: MemberController.createMemberShip,
+  },
+  {
+    path: "/updateMemberShip/:id",
+    method: "put",
+    controller: MemberController.updateMmeberShip,
+  },
+  {
+    path: "/togglePlanStatus/:id",
+    method: "patch",
+    controller: MemberController.togglePlanStatus,
+  },
+  {
+    path: "/getSubscribedUsers",
+    method: "get",
+    controller: adminController.getSubscribedUsers,
   },
 ];

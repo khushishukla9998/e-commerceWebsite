@@ -86,6 +86,10 @@ const orderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Promo",
     }],
+    rewardPointsEarned: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true },
 );

@@ -6,6 +6,8 @@ const ENUM = require("../../utils/enum");
 const appStrings = require("../../utils/appString");
 const commonUtils = require("../../utils/commonUtils");
 const User = require("../../user/model/userModel");
+const UserMembership = require("../../user/model/userMemberShip");
+const MembershipPlan = require("../model/memberShipPlanModel");
 const redisClient = require("../../utils/redisClient");
 const Setting = require("../model/settingModel");
 const appString = require("../../utils/appString");
@@ -277,12 +279,12 @@ const getAlluser = async (req, res) => {
         $project: {
           name: 1,
           email: 1,
-          mobileNo:1,
+          mobileNo: 1,
           status: 1,
           isDeleted: 1,
           addresses: 1,
-          isEmailVerfied:1,
-          isMobileVerfied:1
+          isEmailVerfied: 1,
+          isMobileVerfied: 1
         },
       },
 
@@ -451,6 +453,21 @@ const getAllUsersWithDetails = async (req, res) => {
   }
 };
 
+/**
+ * View all users with active memberships.
+ */
+const getSubscribedUsers = async (req, res) => {
+  try {
+    const subscribedUsers = await UserMembership.find({ status: ENUM.MEMBERSHIP_STATUS.ACTIVE })
+      .populate("userId", "name email mobileNo")
+      .populate("planId", "name durationMonth price");
+
+    return commonUtils.sendSuccessResponse(req, res, appString.FETCH_SUCCESS, subscribedUsers);
+  } catch (err) {
+    return commonUtils.sendErrorResponse(req, res, err.message);
+  }
+};
+
 //==========payment method setting=============
 const setPaymentMethodd = async (req, res) => {
   try {
@@ -487,6 +504,7 @@ module.exports = {
   updateUserStatus,
   getAllUsersWithDetails,
   setPaymentMethodd,
+  getSubscribedUsers,
 };
 //user.isDeleted === ENUM.DELETE_STATUS.ADMIN_DELETE
 

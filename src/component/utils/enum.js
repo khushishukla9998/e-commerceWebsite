@@ -44,4 +44,18 @@ module.exports = {
     FLAT: 1,
     PERCENTAGE: 2,
   },
+  MEMBERSHIP_STATUS: {
+    ACTIVE: 1,
+    EXPIRED: 2,
+    CANCELLED: 3,
+  },
+  REWARD_TYPE: {
+    EARNED: 1,
+    REDEEMED: 2,
+  },
+  MEMBERSHIP_PLAN_NAME: {
+    SILVER: 1,
+    GOLD: 2,
+    PLATINUM: 3,
+  },
 };

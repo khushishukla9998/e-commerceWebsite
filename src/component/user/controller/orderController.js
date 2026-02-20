@@ -26,6 +26,12 @@ const placeOrder = async (req, res) => {
     const userId = req.user && req.user._id;
     const { addressId, code } = req.body;
 
+    // 1. Membership Validation
+    const memCheck = await commonUtils.checkMembershipRequirement(userId);
+    if (!memCheck.allowed) {
+      return commonUtils.sendErrorResponse(req, res, memCheck.message, null, 403);
+    }
+
     // Basic validations
     if (!userId) {
       return commonUtils.sendErrorResponse(
@@ -117,20 +123,17 @@ const placeOrder = async (req, res) => {
       );
     }
 
-    //>>> APPLY DISCOUNT HERE <<<
-    let discount = 0;
-    let appliedPromos = [];
-    let promoMessages = [];
-    try {
-      const result = await commonUtils.calculatePromoDiscount(userId, totalPrice, code || null);
-      discount = result.totalDiscount;
-      appliedPromos = result.appliedPromos;
-      promoMessages = result.promoMessages;
-    } catch (promoErr) {
-      return commonUtils.sendErrorResponse(req, res, promoErr.message, null);
-    }
+    const payableAmountBeforeMembership = Math.max(0, totalPrice - discount);
 
-    const payableAmount = Math.max(0, totalPrice - discount);
+    // 3. Membership Benefit Calculation
+    const memBenefits = await commonUtils.getMembershipBenefits(userId, payableAmountBeforeMembership);
+
+    let finalDiscount = discount + memBenefits.discount;
+    let finalPayableAmount = Math.max(0, payableAmountBeforeMembership - memBenefits.discount);
+
+    // Check delivery fee (placeholder or based on benefits)
+    let deliveryFee = memBenefits.freeDelivery ? 0 : 50; // default delivery fee 50 if not free
+    finalPayableAmount += deliveryFee;
 
     // Create Order
     const newOrder = await Order.create({
@@ -139,12 +142,13 @@ const placeOrder = async (req, res) => {
       addressId,
       items: orderItems,
       totalPrice,
-      discount,
-      finalAmount: payableAmount,
-      status: ENUM.ORDER_STATUS.PENDING, // default pending
-      paymentStatus: ENUM.PAYMENT_STATUS.PENDING, // default pending
+      discount: finalDiscount,
+      finalAmount: finalPayableAmount, // Includes delivery if any
+      status: ENUM.ORDER_STATUS.PENDING,
+      paymentStatus: ENUM.PAYMENT_STATUS.PENDING,
       orderDate: new Date(),
-      appliedPromos: appliedPromos.map(p => p.id), // Store IDs in DB
+      appliedPromos: appliedPromos.map(p => p.id),
+      rewardPointsEarned: memBenefits.rewardPoints, // Need to add this field to Order model if we want to track
     });
 
     // Record usage now that order is created
@@ -157,7 +161,7 @@ const placeOrder = async (req, res) => {
     if (paymentMethod === ENUM.PAYMENT_METHOD.STRIPE) {
       try {
         const paymentIntent = await stripe.paymentIntents.create({
-          amount: Math.round(payableAmount * 100),
+          amount: Math.round(finalPayableAmount * 100),
           currency: "inr",
           description: `Order ${newOrder._id} for ${req.user.email}`,
           automatic_payment_methods: {
@@ -183,7 +187,7 @@ const placeOrder = async (req, res) => {
     else if (paymentMethod === ENUM.PAYMENT_METHOD.RAZOR_PAY) {
       try {
         const razorpayOrder = await razoprpay.orders.create({
-          amount: Math.round(payableAmount * 100),
+          amount: Math.round(finalPayableAmount * 100),
           currency: "INR",
           receipt: `order_${newOrder._id}`,
         });
@@ -212,8 +216,26 @@ const placeOrder = async (req, res) => {
       req,
       res,
       appString.ORDER_PLACED_SUCCESS,
-      { newOrder, paymentResponse, paymentMethod, discount, payableAmount, appliedPromos, promoMessages },
+      {
+        newOrder,
+        paymentResponse,
+        paymentMethod,
+        discount: finalDiscount,
+        payableAmount: finalPayableAmount,
+        appliedPromos,
+        promoMessages,
+        membershipBenefits: {
+          bonusPoints: memBenefits.rewardPoints,
+          plan: memBenefits.planName,
+          freeDelivery: memBenefits.freeDelivery
+        }
+      },
     );
+
+    // If COD, we can apply reward points immediately (or wait for delivery)
+    if (paymentMethod === ENUM.PAYMENT_METHOD.COD) {
+      await commonUtils.applyRewardPoints(userId, memBenefits.rewardPoints, newOrder._id, `Earned from Order ${newOrder._id}`);
+    }
   } catch (err) {
     console.error("Place Order Error:", err);
     return commonUtils.sendErrorResponse(req, res, err.message, null);

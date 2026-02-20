@@ -6,6 +6,7 @@ const passwordController = require("../user/controller/passwordController");
 const cartController = require("./controller/cartController");
 const orderController = require("./controller/orderController");
 const productController = require("../admin/controller/productController");
+const membershipController = require("./controller/membershipController");
 
 module.exports = [
   //*******************=============USER REGISTRATION===============*************************
@@ -198,7 +199,23 @@ module.exports = [
     path: "/updateProfile",
     method: "put",
     controller: controller.updateProfile,
+  },
 
-
+  //*******************=============MEMBERSHIP=====================*************************
+  {
+    path: "/listPlans",
+    method: "get",
+    controller: membershipController.listPlans,
+    isPublic: true,
+  },
+  {
+    path: "/purchaseMembership",
+    method: "post",
+    controller: membershipController.purchaseMembership,
+  },
+  {
+    path: "/confirmMembership",
+    method: "post",
+    controller: membershipController.confirmMembership,
   },
 ];
