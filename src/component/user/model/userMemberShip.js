@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const ENUM = require("../../utils/enum");
+const MembershipPlan = require("../../admin/model/memberShipPlanModel")
 
 const userMemberShip = new mongoose.Schema({
     userId: {

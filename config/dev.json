@@ -7,7 +7,7 @@
     "EMAIL_SENDER": "khushishukla9998@gmail.com",
     "EMAIL_PASSWORD": "ctligzjdhcekoqar",
     "STRIPE_SECRET_KEY": "sk_test_51SzVE8DuimbRvcbhRnzSOHgwe3ROgl3rC8OxiBBpjtWD12SfpSuC7Vowwb7s1d3BQdZDw7sTTL8YdRRPkxS4XQSO00YtCGaT2J",
-    "STRIPE_WEBHOOK_SECRET": "whsec_IpHKpY3TDdOx4SU9Ln8zmtxinHbgDovX",
+    "STRIPE_WEBHOOK_SECRET": "whsec_VN22ukN1ZndsLk64KdZV1jLawFMFrcLW",
     
     "CLIENT_URL": "http://localhost:3000",
     "RAZORPAY_KEY_ID":"rzp_test_SFWXjfHgxXnfwR",

@@ -4,6 +4,7 @@ const commonUtils = require("../../utils/commonUtils");
 const appString = require("../../utils/appString");
 const config = require("../../../../config/dev.json");
 const ENUM = require("../../utils/enum");
+const { log } = require("console");
 const stripe = require("stripe")(config.STRIPE_SECRET_KEY);
 
 /**
@@ -24,7 +25,9 @@ const listPlans = async (req, res) => {
 const purchaseMembership = async (req, res) => {
     try {
         const { planId } = req.body;
-        const userId = req.user._id;
+        console.log(req.body)
+        const userId = req.headers._id;
+        console.log("hii",req.headers.id)
 
         const plan = await MembershipPlan.findById(planId);
         if (!plan || !plan.isActive) {
@@ -52,11 +55,11 @@ const purchaseMembership = async (req, res) => {
                 },
             ],
             mode: "subscription",
-            success_url: `${req.headers.origin}/membership/success?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${req.headers.origin}/membership/cancel`,
+            success_url: `https://${req.headers.origin}/membership/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `https://${req.headers.origin}/membership/cancel`,
             metadata: {
-                userId: userId.toString(),
-                planId: planId.toString(),
+                userId: userId,
+                planId: planId
             },
         });
 

@@ -19,7 +19,7 @@ const razoprpay = new Razorpay({
 // PLACE ORDER
 // ============================================================
 
-const { applyPromoDiscount } = commonUtils;
+const { calculatePromoDiscount } = commonUtils;
 
 const placeOrder = async (req, res) => {
   try {
@@ -122,7 +122,19 @@ const placeOrder = async (req, res) => {
         null,
       );
     }
+ let discount = 0;
+    let appliedPromos = [];
+    let promoMessages = [];
+    try {
+      const result = await commonUtils.calculatePromoDiscount(userId, totalPrice, code || null);
+      discount = result.totalDiscount;
+      appliedPromos = result.appliedPromos;
+      promoMessages = result.promoMessages;
+    } catch (promoErr) {
+      return commonUtils.sendErrorResponse(req, res, promoErr.message, null);
+    }
 
+    const payableAmount = Math.max(0, totalPrice - discount);
     const payableAmountBeforeMembership = Math.max(0, totalPrice - discount);
 
     // 3. Membership Benefit Calculation
