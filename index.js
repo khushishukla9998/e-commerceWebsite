@@ -8,18 +8,18 @@ const path = require("path");
 const userIndex = require("./src/component/user/index");
 const adminIndex = require("./src/component/admin/index");
 // const passwordIndex = require("./src/component/forgot password/index")
-const appStrings = require("../e-commerceWebsite/src/component/utils/appString");
+const appStrings = require("./src/component/utils/appString");
 const config = require("./config/dev.json");
 const stripe = require("stripe")(config.STRIPE_SECRET_KEY);
-const ENUM = require("../e-commerceWebsite/src/component/utils/enum");
-const commonUtils = require("../e-commerceWebsite/src/component/utils/commonUtils");
-const Order = require("../e-commerceWebsite/src/component/user/model/orderModel");
-const Cart = require("../e-commerceWebsite/src/component/user/model/cartModel");
+const ENUM = require("./src/component/utils/enum");
+const commonUtils = require("./src/component/utils/commonUtils");
+const Order = require("./src/component/user/model/orderModel");
+const Cart = require("./src/component/user/model/cartModel");
 const crypto = require("crypto");
-const Product = require("../e-commerceWebsite/src/component/admin/model/productModel");
-const UserMembership = require("../e-commerceWebsite/src/component/user/model/userMemberShip");
-const MembershipPlan = require("../e-commerceWebsite/src/component/admin/model/memberShipPlanModel");
-const User = require("../e-commerceWebsite/src/component/user/model/userModel");
+const Product = require("./src/component/admin/model/productModel");
+const UserMembership = require("./src/component/user/model/userMemberShip");
+const MembershipPlan = require("./src/component/admin/model/memberShipPlanModel");
+const User = require("./src/component/user/model/userModel");
 
 const app = express();
 const port = 3001;
@@ -57,8 +57,8 @@ app.post(
           });
 
           if (order) {
-            ((order.paymentStatus = ENUM.PAYMENT_STATUS.SUCCESS),
-              (order.status = ENUM.ORDER_STATUS.SUCCESS));
+            order.paymentStatus = ENUM.PAYMENT_STATUS.SUCCESS;
+            order.status = ENUM.ORDER_STATUS.SUCCESS;
             order.razorpayPayementId = payment.id;
 
             await order.save();

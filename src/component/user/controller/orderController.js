@@ -23,7 +23,7 @@ const { calculatePromoDiscount } = commonUtils;
 
 const placeOrder = async (req, res) => {
   try {
-    const userId = req.user && req.user._id;
+    const userId = req.userId;
     const { addressId, code } = req.body;
 
     // 1. Membership Validation
@@ -122,7 +122,7 @@ const placeOrder = async (req, res) => {
         null,
       );
     }
- let discount = 0;
+    let discount = 0;
     let appliedPromos = [];
     let promoMessages = [];
     try {
@@ -224,6 +224,11 @@ const placeOrder = async (req, res) => {
 
     await newOrder.save();
 
+    // If COD, we can apply reward points immediately (or wait for delivery)
+    if (paymentMethod === ENUM.PAYMENT_METHOD.COD) {
+      await commonUtils.applyRewardPoints(userId, memBenefits.rewardPoints, newOrder._id, `Earned from Order ${newOrder._id}`);
+    }
+
     return commonUtils.sendSuccessResponse(
       req,
       res,
@@ -243,11 +248,6 @@ const placeOrder = async (req, res) => {
         }
       },
     );
-
-    // If COD, we can apply reward points immediately (or wait for delivery)
-    if (paymentMethod === ENUM.PAYMENT_METHOD.COD) {
-      await commonUtils.applyRewardPoints(userId, memBenefits.rewardPoints, newOrder._id, `Earned from Order ${newOrder._id}`);
-    }
   } catch (err) {
     console.error("Place Order Error:", err);
     return commonUtils.sendErrorResponse(req, res, err.message, null);

@@ -11,7 +11,7 @@ const mongoose = require("mongoose");
 exports.addAddress = async function (req, res) {
   try {
     const { street, city, state, zipCode } = req.body;
-    const userId = req.headers.id;
+    const userId = req.userId;
     console.log("USER ID =>", userId);
 
 
@@ -66,7 +66,7 @@ exports.addAddress = async function (req, res) {
 
 exports.getAddress = async function (req, res) {
   try {
-    const userId = req.headers.id;
+    const userId = req.userId;
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return commonUtils.sendErrorResponse(
@@ -130,7 +130,7 @@ exports.getAddress = async function (req, res) {
 //=========================update secondary address as primary address
 exports.setPrimaryAddress = async function (req, res) {
   try {
-    const userId = req.headers.id;
+    const userId = req.userId;
     const { addressId } = req.body;
 
     if (!userId || !addressId) {

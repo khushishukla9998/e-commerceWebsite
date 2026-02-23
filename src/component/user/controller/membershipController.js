@@ -26,8 +26,8 @@ const purchaseMembership = async (req, res) => {
     try {
         const { planId } = req.body;
         console.log(req.body)
-        const userId = req.headers._id;
-        console.log("hii",req.headers.id)
+        const userId = req.userId;
+        console.log("User ID from request:", userId);
 
         const plan = await MembershipPlan.findById(planId);
         if (!plan || !plan.isActive) {

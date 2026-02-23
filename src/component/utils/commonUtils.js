@@ -381,6 +381,9 @@ async function applyRewardPoints(userId, points, orderId, description) {
     { userId, status: ENUM.MEMBERSHIP_STATUS.ACTIVE },
     { $inc: { orderUsedAfterMembership: 1 } }
   );
+
+  // Update user reward points field
+  await User.findByIdAndUpdate(userId, { $inc: { rewardPoints: points } });
 }
 
 module.exports = {

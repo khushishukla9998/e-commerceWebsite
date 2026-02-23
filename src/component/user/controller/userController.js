@@ -332,7 +332,7 @@ const login = async function (req, res) {
 
 async function getprofile(req, res) {
   try {
-    const userId = req.headers.id;
+    const userId = req.userId;
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return commonUtils.sendErrorResponse(
@@ -984,7 +984,7 @@ const updateProfile = async (req, res) => {
   }
 };
 
-//==========================update user
+//==========================update user ===============================// 
 
 module.exports = {
   register,
