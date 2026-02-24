@@ -13,6 +13,7 @@ const ENUM = require("./enum");
 const UserMembership = require("../user/model/userMemberShip");
 const Order = require("../user/model/orderModel");
 const RewardHistory = require("../user/model/rewardHistoryModel");
+const { default: mongoose } = require("mongoose");
 
 // ============================================================
 // RESPONSE UTILITIES
@@ -274,6 +275,7 @@ async function recordPromoUsage(userId, promoIds) {
  * Rule: 1st order is free, from 2nd order onwards membership is compulsory.
  */
 async function checkMembershipRequirement(userId) {
+  console.log("hiiiiiiiiiiiiiiiiiiiiiiiiiiii")
   const orderCount = await Order.countDocuments({
     userId,
     paymentStatus: ENUM.PAYMENT_STATUS.SUCCESS,
@@ -289,26 +291,39 @@ async function checkMembershipRequirement(userId) {
     endDate: { $gt: new Date() },
   });
 
-  if (!activeMembership) {
-    return {
-      allowed: false,
-      message: "Membership is compulsory from the second order onwards.",
-    };
-  }
+
+  // if (!activeMembership) {
+  //   return {
+  //     allowed: false,
+  //     message: "Membership is compulsory from the second order onwards.",
+  //   };
+  // }
 
   return { allowed: true, membership: activeMembership };
 }
 
-/**
- * Calculates discounts, free delivery, and reward points based on membership.
- */
+// Calculates discounts, free delivery, and reward points based on membership.
+
 async function getMembershipBenefits(userId, orderAmount) {
+  console.log("benifits")  
+  console.log("userid", userId)
+  console.log("type",typeof userId)
+  
   const activeMembership = await UserMembership.findOne({
-    userId,
+    userId: new mongoose.Types.ObjectId(userId),
     status: ENUM.MEMBERSHIP_STATUS.ACTIVE,
     endDate: { $gt: new Date() },
   }).populate("planId");
 
+   console.log(activeMembership);
+   console.log("current date", new Date());
+
+    // // Accessing the plan details in a loop:
+    // activeMembership.forEach(membership => {
+    //   console.log('User ID:', membership.userId);
+    //   console.log('Plan Name:', membership.planId.name); 
+    //   console.log('Plan Price:', membership.planId.price); 
+    // });
   const benefits = {
     discount: 0,
     freeDelivery: false,
@@ -322,6 +337,7 @@ async function getMembershipBenefits(userId, orderAmount) {
 
   const plan = activeMembership.planId;
   benefits.planName = plan.name;
+  console.log("plan",plan)
 
   // 1. Discount Calculation
   if (orderAmount > plan.discountMinOrderAmount) {

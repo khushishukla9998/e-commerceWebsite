@@ -19,8 +19,6 @@ const razoprpay = new Razorpay({
 // PLACE ORDER
 // ============================================================
 
-const { calculatePromoDiscount } = commonUtils;
-
 const placeOrder = async (req, res) => {
   try {
     const userId = req.userId;
@@ -29,7 +27,13 @@ const placeOrder = async (req, res) => {
     // 1. Membership Validation
     const memCheck = await commonUtils.checkMembershipRequirement(userId);
     if (!memCheck.allowed) {
-      return commonUtils.sendErrorResponse(req, res, memCheck.message, null, 403);
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        memCheck.message,
+        null,
+        403,
+      );
     }
 
     // Basic validations
@@ -65,7 +69,6 @@ const placeOrder = async (req, res) => {
 
     let setting = await paymentSetting.findOne();
     if (!setting) {
-      // Proactive: Use default payment method (Razorpay) if not explicitly set by admin
       setting = { paymentMethod: ENUM.PAYMENT_METHOD.RAZOR_PAY };
     }
 
@@ -126,7 +129,11 @@ const placeOrder = async (req, res) => {
     let appliedPromos = [];
     let promoMessages = [];
     try {
-      const result = await commonUtils.calculatePromoDiscount(userId, totalPrice, code || null);
+      const result = await commonUtils.calculatePromoDiscount(
+        userId,
+        totalPrice,
+        code || null,
+      );
       discount = result.totalDiscount;
       appliedPromos = result.appliedPromos;
       promoMessages = result.promoMessages;
@@ -138,12 +145,15 @@ const placeOrder = async (req, res) => {
     const payableAmountBeforeMembership = Math.max(0, totalPrice - discount);
 
     // 3. Membership Benefit Calculation
-    const memBenefits = await commonUtils.getMembershipBenefits(userId, payableAmountBeforeMembership);
+    const memBenefits = await commonUtils.getMembershipBenefits(
+      userId,
+      payableAmountBeforeMembership,
+    );
 
     let finalDiscount = discount + memBenefits.discount;
-    let finalPayableAmount = Math.max(0, payableAmountBeforeMembership - memBenefits.discount);
+    let finalPayableAmount = Math.max( 0, payableAmountBeforeMembership - memBenefits.discount);
 
-    // Check delivery fee (placeholder or based on benefits)
+    // Check delivery fee
     let deliveryFee = memBenefits.freeDelivery ? 0 : 50; // default delivery fee 50 if not free
     finalPayableAmount += deliveryFee;
 
@@ -159,12 +169,15 @@ const placeOrder = async (req, res) => {
       status: ENUM.ORDER_STATUS.PENDING,
       paymentStatus: ENUM.PAYMENT_STATUS.PENDING,
       orderDate: new Date(),
-      appliedPromos: appliedPromos.map(p => p.id),
+      appliedPromos: appliedPromos.map((p) => p.id),
       rewardPointsEarned: memBenefits.rewardPoints, // Need to add this field to Order model if we want to track
     });
 
     // Record usage now that order is created
-    await commonUtils.recordPromoUsage(userId, appliedPromos.map(p => p.id));
+    await commonUtils.recordPromoUsage(
+      userId,
+      appliedPromos.map((p) => p.id),
+    );
 
     const paymentMethod = setting.paymentMethod;
     let paymentResponse = null;
@@ -221,8 +234,16 @@ const placeOrder = async (req, res) => {
       newOrder.paymentStatus = ENUM.PAYMENT_STATUS.PENDING;
       newOrder.status = ENUM.ORDER_STATUS.PENDING; //
     }
-
     await newOrder.save();
+    // If COD, we can apply reward points immediately (or wait for delivery)
+    if (paymentMethod === ENUM.PAYMENT_METHOD.COD) {
+      await commonUtils.applyRewardPoints(
+        userId,
+        memBenefits.rewardPoints,
+        newOrder._id,
+        `Earned from Order ${newOrder._id}`,
+      );
+    }
 
     // If COD, we can apply reward points immediately (or wait for delivery)
     if (paymentMethod === ENUM.PAYMENT_METHOD.COD) {
@@ -244,8 +265,8 @@ const placeOrder = async (req, res) => {
         membershipBenefits: {
           bonusPoints: memBenefits.rewardPoints,
           plan: memBenefits.planName,
-          freeDelivery: memBenefits.freeDelivery
-        }
+          freeDelivery: memBenefits.freeDelivery,
+        },
       },
     );
   } catch (err) {
@@ -384,10 +405,6 @@ const getUserOrders = async (req, res) => {
     const orders = await Order.find({ userId })
       .sort({ createdAt: -1 })
       .populate("items.productId", "productName price images");
-    const success = ENUM.ORDER_STATUS.SUCCESS;
-    const failed = ENUM.ORDER_STATUS.FAILED;
-    const cancelled = ENUM.ORDER_STATUS.CANCELLED;
-    const pending = ENUM.ORDER_STATUS.PENDING;
 
     const groupedOrders = {
       success: [ENUM.ORDER_STATUS.SUCCESS],

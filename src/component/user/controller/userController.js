@@ -13,7 +13,8 @@ const fs = require("fs");
 const redisClient = require("../../utils/redisClient");
 const sendVerificationEmail = require("../../utils/emailService");
 const sendOtp = require("../../utils/smsService");
-
+const config = require("../../../../config/dev.json");
+const stripe = require("stripe")(config.STRIPE_SECRET_KEY);
 //====================REGISTER=======================================================\\
 
 function normalizeIndianMobile(mobileNo) {
@@ -86,6 +87,15 @@ const register = async function (req, res) {
       );
     }
 
+    // create customer id
+    const customer = await stripe.customers.create({
+      name: name,
+      email: email,
+      mobileNo:mobileNo
+
+    });
+    console.log(customer.id);
+
     // hash password
     const hashpass = await bcrypt.hash(password, 10);
 
@@ -96,6 +106,8 @@ const register = async function (req, res) {
       profileImage: profileImage || null,
       email: email || null,
       mobileNo: null,
+      cust_id: customer.id,
+      customer:customer
     };
 
     let otp;
@@ -186,6 +198,7 @@ const register = async function (req, res) {
           status: user.status,
           emailOtp: user.emailOtp,
           otp: user.otp,
+          cust_id: customer.id
         },
         accessToken,
         refreshToken,
