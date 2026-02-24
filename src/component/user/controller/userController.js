@@ -6,6 +6,7 @@ const token = require("../../../middleware/index");
 const ENUM = require("../../utils/enum");
 const appStrings = require("../../utils/appString");
 const commonUtils = require("../../utils/commonUtils");
+const RewardHistory = require("../model/rewardHistoryModel");
 
 const multer = require("multer");
 const path = require("path");
@@ -91,7 +92,7 @@ const register = async function (req, res) {
     const customer = await stripe.customers.create({
       name: name,
       email: email,
-      mobileNo:mobileNo
+      mobileNo: mobileNo
 
     });
     console.log(customer.id);
@@ -107,7 +108,7 @@ const register = async function (req, res) {
       email: email || null,
       mobileNo: null,
       cust_id: customer.id,
-      customer:customer
+      customer: customer
     };
 
     let otp;
@@ -998,6 +999,39 @@ const updateProfile = async (req, res) => {
 };
 
 //==========================update user ===============================// 
+// ================== Get Reward Points History ==================
+const getRewardHistory = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const totalResults = await RewardHistory.countDocuments({ userId });
+    const history = await RewardHistory.find({ userId })
+      .populate("userId", "name email")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    return commonUtils.sendSuccessResponse(
+      req,
+      res,
+      "Reward history fetched successfully",
+      {
+        pagination: {
+          totalResults,
+          totalPages: Math.ceil(totalResults / limit),
+          currentPage: page,
+          limit: limit,
+        },
+        history,
+      },
+    );
+  } catch (err) {
+    return commonUtils.sendErrorResponse(req, res, err.message);
+  }
+};
 
 module.exports = {
   register,
@@ -1012,4 +1046,5 @@ module.exports = {
   resendEmailOtp,
   resendMobileOtp,
   updateProfile,
+  getRewardHistory,
 };

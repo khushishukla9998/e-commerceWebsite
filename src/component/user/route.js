@@ -42,6 +42,11 @@ module.exports = [
 
   },
   {
+    path: "/getRewardHistory",
+    method: "get",
+    controller: controller.getRewardHistory,
+  },
+  {
     path: "/addImage",
     method: "post",
     controller: controller.multered,

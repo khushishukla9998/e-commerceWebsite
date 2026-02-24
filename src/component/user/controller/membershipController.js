@@ -127,6 +127,7 @@ const cancelSubscription = async (req, res) => {
       req,
       res,
       "Subscription cancelled successfully!",
+      { planId: membership.planId },
     );
   } catch (err) {
     return commonUtils.sendErrorResponse(req, res, err.message);

@@ -82,7 +82,6 @@ app.post(
             // APPLY REWARD POINTS
             if (order.rewardPointsEarned > 0) {
               await commonUtils.applyRewardPoints(order.userId, order.rewardPointsEarned, order._id, `Earned from order ${order._id}`);
-              await User.findByIdAndUpdate(order.userId, { $inc: { rewardPoints: order.rewardPointsEarned } });
             }
           }
           break;
@@ -257,7 +256,6 @@ app.post(
             // APPLY REWARD POINTS
             if (order.rewardPointsEarned > 0) {
               await commonUtils.applyRewardPoints(order.userId, order.rewardPointsEarned, order._id, `Earned from order ${order._id}`);
-              await User.findByIdAndUpdate(order.userId, { $inc: { rewardPoints: order.rewardPointsEarned } });
             }
           }
           break;
