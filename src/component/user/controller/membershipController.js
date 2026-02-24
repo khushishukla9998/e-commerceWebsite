@@ -29,7 +29,7 @@ const purchaseMembership = async (req, res) => {
   try {
     const { planId } = req.body;
     console.log(req.body);
- // const userId = req.headers._id;
+    // const userId = req.headers._id;
     const userId = req?.user?.id;
     console.log("hii", req.headers.id);
     console.log("userId", req?.user?.id);
@@ -72,11 +72,17 @@ const purchaseMembership = async (req, res) => {
       customer: custe_id.cust_id || undefined,
     });
 
-  const usermemberShip = new UserMembership({userId, planId, stripeCustomerId:custe_id.cust_id});
-  await usermemberShip.save();
+    const usermemberShip = new UserMembership({
+      userId,
+      planId,
+      stripeCustomerId: custe_id.cust_id,
+      stripeSessionId: session.id, // Save the session ID here
+      paymentStatus: ENUM.PAYMENT_STATUS.PENDING,
+      status: ENUM.MEMBERSHIP_STATUS.CANCELLED, // Default to inactive/cancelled until paid
+    });
+    await usermemberShip.save();
 
-    console.log("user id::",userId)
-    console.log("planid::",planId)
+    console.log("Membership intent saved:", usermemberShip._id);
 
     return commonUtils.sendSuccessResponse(req, res, "Session created", {
       sessionId: session.id,
@@ -87,96 +93,54 @@ const purchaseMembership = async (req, res) => {
   }
 };
 
-//Confirm membership after successful Stripe payment.
+// Cancel an active membership subscription.
+const cancelSubscription = async (req, res) => {
+  try {
+    const userId = req?.user?.id;
 
-// const confirmMembership = async (req, res) => {
-//   try {
-//     const { sessionId } = req.body;
-//     const session = await stripe.checkout.sessions.retrieve(sessionId);
+    // Find the active membership
+    const membership = await UserMembership.findOne({
+      userId,
+      status: ENUM.MEMBERSHIP_STATUS.ACTIVE,
+    });
 
-//     if (session.payment_status !== "paid") {
-//       return commonUtils.sendErrorResponse(req, res, "Payment not successful.");
-//     }
+    if (!membership || !membership.stripeSubscriptionId) {
+      return commonUtils.sendErrorResponse(
+        req,
+        res,
+        "No active subscription found to cancel.",
+      );
+    }
 
-//     const { userId, planId } = session.metadata;
-//     const plan = await MembershipPlan.findById(planId);
+    // Cancel the subscription in Stripe
+    const deletedSubscription = await stripe.subscriptions.cancel(
+      membership.stripeSubscriptionId,
+    );
 
-//     const endDate = new Date();
-//     endDate.setMonth(endDate.getMonth() + plan.durationMonth);
+    console.log("Stripe subscription cancelled:", deletedSubscription.id);
 
-//     const newMembership = await UserMembership.create({
-//       userId,
-//       planId,
-//       stripeCustomerId: session.customer,
-//       stripeSubscriptionId: session.subscription,
-//       endDate,
-//       status: ENUM.MEMBERSHIP_STATUS.ACTIVE,
-//     });
+    // Update local database status
+    membership.status = ENUM.MEMBERSHIP_STATUS.CANCELLED;
+    await membership.save();
 
-//     return commonUtils.sendSuccessResponse(
-//       req,
-//       res,
-//       "Membership activated successfully!",
-//       newMembership,
-//     );
-//   } catch (err) {
-//     return commonUtils.sendErrorResponse(req, res, err.message);
-//   }
-// };
+    return commonUtils.sendSuccessResponse(
+      req,
+      res,
+      "Subscription cancelled successfully!",
+    );
+  } catch (err) {
+    return commonUtils.sendErrorResponse(req, res, err.message);
+  }
+};
 
 const confirmMembership = async (req, res) => {
-//   try {
-//     const { stripeCustomerId, userId, planId } = req.body;
-
-//     if (!stripeCustomerId) {
-//       return commonUtils.sendErrorResponse(
-//         req,
-//         res,
-//         "Customer ID is required.",
-//       );
-//     }
-
-//     //  Retrieve subscriptions for this customer
-//     const subscriptions = await stripe.subscriptions.list({
-//       customer: stripeCustomerId,
-//       status: "active",
-//       limit: 1,
-//     });
-
-//     if (subscriptions.data.length === 0) {
-//       return commonUtils.sendErrorResponse(
-//         req,
-//         res,
-//         "No active subscription found for this customer.",
-//       );
-//     }
-
-//     const subscription = subscriptions.data[0];
-
-//     const endDate = new Date(subscription.current_period_end * 1000);
-
-//     const newMembership = await UserMembership.create({
-//       userId,
-//       planId,
-//       stripeCustomerId: stripeCustomerId,
-//       stripeSubscriptionId: subscription.id,
-//       endDate,
-//       status: ENUM.MEMBERSHIP_STATUS.ACTIVE,
-//     });
-
-//     return commonUtils.sendSuccessResponse(
-//       req,
-//       res,
-//       "Membership activated successfully via Customer ID!",
-//       newMembership,
-//     );
-//   } catch (err) {
-//     return commonUtils.sendErrorResponse(req, res, err.message);
-//   }
+  // Logic handled via webhook (index.js)
+  return commonUtils.sendErrorResponse(req, res, "Manual confirmation is disabled. Use the webhook flow.");
 };
 
 module.exports = {
   listPlans,
   purchaseMembership,
+  cancelSubscription,
   confirmMembership,
 };

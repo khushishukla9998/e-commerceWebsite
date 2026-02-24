@@ -17,6 +17,9 @@ const userMemberShip = new mongoose.Schema(
     stripeCustomerId: {
       type: String,
     },
+    stripeSessionId: {
+      type: String,
+    },
     stripeSubscriptionId: {
       type: String,
     },
@@ -39,14 +42,14 @@ const userMemberShip = new mongoose.Schema(
       default: ENUM.MEMBERSHIP_STATUS.ACTIVE,
     },
     paymentStatus: {
-          type: Number,
+      type: Number,
       enum: [
         ENUM.PAYMENT_STATUS.PENDING,
         ENUM.PAYMENT_STATUS.SUCCESS,
         ENUM.PAYMENT_STATUS.FAILED,
         ENUM.PAYMENT_STATUS.CANCELLED,
       ],
-      default:ENUM.PAYMENT_STATUS.PENDING,
+      default: ENUM.PAYMENT_STATUS.PENDING,
     },
     orderUsedAfterMembership: {
       type: Number,

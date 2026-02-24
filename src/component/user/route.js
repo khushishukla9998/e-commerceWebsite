@@ -218,4 +218,9 @@ module.exports = [
     method: "post",
     controller: membershipController.confirmMembership,
   },
+  {
+    path: "/cancelSubscription",
+    method: "post",
+    controller: membershipController.cancelSubscription,
+  },
 ];

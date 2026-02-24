@@ -292,12 +292,12 @@ async function checkMembershipRequirement(userId) {
   });
 
 
-  // if (!activeMembership) {
-  //   return {
-  //     allowed: false,
-  //     message: "Membership is compulsory from the second order onwards.",
-  //   };
-  // }
+  if (!activeMembership) {
+    return {
+      allowed: false,
+      message: "Membership is compulsory from the second order onwards.",
+    };
+  }
 
   return { allowed: true, membership: activeMembership };
 }

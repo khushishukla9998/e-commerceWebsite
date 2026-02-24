@@ -29,6 +29,7 @@ module.exports = {
     FAILED: 1,
     SUCCESS: 2,
     CANCELLED: 3,
+    REFUNDED: 4,
   },
 
   PAYMENT_METHOD: {

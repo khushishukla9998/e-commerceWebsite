@@ -141,25 +141,33 @@ app.post(
           const session = event.data.object;
           console.log("checkout.session.completed for:", session.id);
 
-          // Check if this session is for a membership (using metadata)
-          if (session.metadata && session.metadata.userId && session.metadata.planId) {
-            const { userId, planId } = session.metadata;
-            const plan = await MembershipPlan.findById(planId);
+          // Find the membership record using the session ID
+          const membership = await UserMembership.findOne({
+            stripeSessionId: session.id,
+          });
+
+          if (membership) {
+            const plan = await MembershipPlan.findById(membership.planId);
 
             if (plan) {
               const endDate = new Date();
               endDate.setMonth(endDate.getMonth() + plan.durationMonth);
 
-              await UserMembership.create({
-                userId,
-                planId,
-                stripeCustomerId: session.customer,
-                stripeSubscriptionId: session.subscription,
-                endDate,
-                status: ENUM.MEMBERSHIP_STATUS.ACTIVE,
-              });
-              console.log(`Membership activated for user ${userId} via webhook.`);
+              membership.stripeCustomerId = session.customer;
+              membership.stripeSubscriptionId = session.subscription;
+              membership.endDate = endDate;
+              membership.paymentStatus = ENUM.PAYMENT_STATUS.SUCCESS;
+              membership.status = ENUM.MEMBERSHIP_STATUS.ACTIVE;
+
+              await membership.save();
+              console.log(
+                `Membership activated for user ${membership.userId} via webhook using session ID.`,
+              );
+            } else {
+              console.error("Membership plan not found for ID:", membership.planId);
             }
+          } else {
+            console.log("No membership record found for session ID:", session.id);
           }
           break;
         }
@@ -292,6 +300,43 @@ app.post(
               ENUM.PAYMENT_STATUS.CANCELLED || "CANCELLED";
             order.status = ENUM.ORDER_STATUS.CANCELLED || "CANCELLED";
             await order.save();
+          }
+          break;
+        }
+
+        // 6. Subscription Deleted (Canceled)
+        case "customer.subscription.deleted": {
+          const subscription = event.data.object;
+          console.log("customer.subscription.deleted for:", subscription.id);
+
+          const membership = await UserMembership.findOne({
+            stripeSubscriptionId: subscription.id,
+          });
+
+          if (membership) {
+            membership.status = ENUM.MEMBERSHIP_STATUS.CANCELLED;
+            await membership.save();
+            console.log(`Membership cancelled for user ${membership.userId} via webhook.`);
+          }
+          break;
+        }
+
+        // 7. Charge Refunded
+        case "charge.refunded": {
+          const charge = event.data.object;
+          console.log("charge.refunded for:", charge.id);
+
+          // Find membership by customer ID
+          const membership = await UserMembership.findOne({
+            stripeCustomerId: charge.customer,
+            status: ENUM.MEMBERSHIP_STATUS.ACTIVE,
+          });
+
+          if (membership) {
+            membership.paymentStatus = ENUM.PAYMENT_STATUS.REFUNDED;
+            membership.status = ENUM.MEMBERSHIP_STATUS.CANCELLED;
+            await membership.save();
+            console.log(`Membership refunded and cancelled for user ${membership.userId} via webhook.`);
           }
           break;
         }
