@@ -1009,7 +1009,7 @@ const getRewardHistory = async (req, res) => {
 
     const totalResults = await RewardHistory.countDocuments({ userId });
     const history = await RewardHistory.find({ userId })
-      .populate("userId", "name email")
+      .populate("userId", "name"," email")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -1017,7 +1017,7 @@ const getRewardHistory = async (req, res) => {
     return commonUtils.sendSuccessResponse(
       req,
       res,
-      "Reward history fetched successfully",
+  appStrings.FETCH_REWARD,
       {
         pagination: {
           totalResults,

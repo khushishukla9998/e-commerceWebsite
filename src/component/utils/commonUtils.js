@@ -275,14 +275,14 @@ async function recordPromoUsage(userId, promoIds) {
  * Rule: 1st order is free, from 2nd order onwards membership is compulsory.
  */
 async function checkMembershipRequirement(userId) {
-  console.log("hiiiiiiiiiiiiiiiiiiiiiiiiiiii")
+  console.log("XCHECK MEMEBER SHIP FUNCTION IS CALLED ")
   const orderCount = await Order.countDocuments({
     userId,
     paymentStatus: ENUM.PAYMENT_STATUS.SUCCESS,
   });
 
   if (orderCount === 0) {
-    return { allowed: true, message: "First order is free!" };
+    return { allowed: true, message: appStrings.FIRST_FREE };
   }
 
   const activeMembership = await UserMembership.findOne({
@@ -295,7 +295,7 @@ async function checkMembershipRequirement(userId) {
   if (!activeMembership) {
     return {
       allowed: false,
-      message: "Membership is compulsory from the second order onwards.",
+      message: appStrings.MEMBERSHIP_COMPULSORY,
     };
   }
 
@@ -305,7 +305,7 @@ async function checkMembershipRequirement(userId) {
 // Calculates discounts, free delivery, and reward points based on membership.
 
 async function getMembershipBenefits(userId, orderAmount) {
-  console.log("benifits")  
+  console.log("BENIFITS FUNCTION IS CALLED ")  
   console.log("userid", userId)
   console.log("type",typeof userId)
   

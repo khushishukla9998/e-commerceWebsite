@@ -218,11 +218,7 @@ module.exports = [
     method: "post",
     controller: membershipController.purchaseMembership,
   },
-  {
-    path: "/confirmMembership",
-    method: "post",
-    controller: membershipController.confirmMembership,
-  },
+
   {
     path: "/cancelSubscription",
     method: "post",

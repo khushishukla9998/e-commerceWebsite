@@ -174,5 +174,11 @@ module.exports = {
   //==================  Member Ship ==============
   PLAN_CREATED:"Member-Ship plan is created ",
   PLAN_NOT_EXIST:"Plan not found",
-  
+  SESSION_CREATED:"Session created",
+  NO_ACTIVE:  "No active subscription found to cancel.",
+  SUCESS_SUBS_CANCEL:"Subscription cancelled and refund initiated successfully!",
+  FETCH_REWARD:"Reward history fetched successfully",
+  FIRST_FREE: "First order is free!",
+  MEMBERSHIP_COMPULSORY: "Membership is compulsory from the second order onwards.",
+  ALREADY_ACTIVE:  "You already have an active membership.",
 };

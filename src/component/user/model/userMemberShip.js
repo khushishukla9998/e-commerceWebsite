@@ -48,12 +48,17 @@ const userMemberShip = new mongoose.Schema(
         ENUM.PAYMENT_STATUS.SUCCESS,
         ENUM.PAYMENT_STATUS.FAILED,
         ENUM.PAYMENT_STATUS.CANCELLED,
+        ENUM.PAYMENT_STATUS.REFUNDED
       ],
       default: ENUM.PAYMENT_STATUS.PENDING,
     },
     orderUsedAfterMembership: {
       type: Number,
       default: 0,
+    },
+    chargeId:{
+      type:String,
+     //efault:null
     },
   },
   { timestamps: true },

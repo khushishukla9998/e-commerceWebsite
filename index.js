@@ -135,7 +135,7 @@ app.post(
 
     try {
       switch (event.type) {
-        // 0. Checkout Session Completed (for Membership)
+        // 1. Checkout Session Completed (for Membership)
         case "checkout.session.completed": {
           const session = event.data.object;
           console.log("checkout.session.completed for:", session.id);
@@ -157,7 +157,7 @@ app.post(
               membership.endDate = endDate;
               membership.paymentStatus = ENUM.PAYMENT_STATUS.SUCCESS;
               membership.status = ENUM.MEMBERSHIP_STATUS.ACTIVE;
-
+            
               await membership.save();
               console.log(
                 `Membership activated for user ${membership.userId} via webhook using session ID.`,
@@ -171,7 +171,7 @@ app.post(
           break;
         }
 
-        // 1. PaymentIntent created
+        // 2. PaymentIntent created
         case "payment_intent.created": {
           const paymentIntent = event.data.object;
           console.log("payment_intent.created for:", paymentIntent.id);
@@ -193,6 +193,7 @@ app.post(
           break;
         }
 
+        // 3.
         case "payment_intent.requires_action":
         case "payment_intent.processing": {
           const paymentIntent = event.data.object;
@@ -211,7 +212,7 @@ app.post(
           break;
         }
 
-        // 3. Payment succeeded
+        // 4. Payment succeeded
         case "payment_intent.succeeded": {
           const paymentIntent = event.data.object;
           console.log("payment_intent.succeeded for:", paymentIntent.id);
@@ -220,7 +221,26 @@ app.post(
             stripePaymentIntentId: paymentIntent.id,
           });
           console.log("order found:", order ? order._id : null);
+    const invoice = event.data.object;
+ 
+    const chargeId = paymentIntent.latest_charge; 
 
+    if (!chargeId && invoice.payment_intent) {
+        const paymentIntent = await stripe.paymentIntents.retrieve(invoice.payment_intent);
+        chargeId = paymentIntent.latest_charge;
+    }
+    
+
+    if (chargeId) {
+      
+        const membership = await UserMembership.findOne({ stripeSubscriptionId: invoice.subscription });
+
+        if (membership) {
+            membership.chargeId = chargeId;
+            await membership.save();
+            console.log(`Charge ID ${chargeId} saved for membership ${membership.id}`);
+        }
+    }
           if (
             order &&
             (order.paymentStatus !== ENUM.PAYMENT_STATUS.SUCCESS ||
@@ -261,7 +281,7 @@ app.post(
           break;
         }
 
-        // 4. Payment failed
+        // 5. Payment failed
         case "payment_intent.payment_failed": {
           const paymentIntent = event.data.object;
           console.log("payment_intent.payment_failed for:", paymentIntent.id);
@@ -283,7 +303,7 @@ app.post(
           break;
         }
 
-        // 5. Canceled
+        // 6. Canceled
         case "payment_intent.canceled": {
           const paymentIntent = event.data.object;
           console.log("payment_intent.canceled for:", paymentIntent.id);
@@ -302,7 +322,7 @@ app.post(
           break;
         }
 
-        // 6. Subscription Deleted (Canceled)
+        // 7. Subscription Deleted (Canceled)
         case "customer.subscription.deleted": {
           const subscription = event.data.object;
           console.log("customer.subscription.deleted for:", subscription.id);
@@ -319,7 +339,7 @@ app.post(
           break;
         }
 
-        // 7. Charge Refunded
+        // 8. Charge Refunded
         case "charge.refunded": {
           const charge = event.data.object;
           console.log("charge.refunded for:", charge.id);
