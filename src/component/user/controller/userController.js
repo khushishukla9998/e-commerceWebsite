@@ -998,7 +998,7 @@ const updateProfile = async (req, res) => {
   }
 };
 
-//==========================update user ===============================// 
+
 // ================== Get Reward Points History ==================
 const getRewardHistory = async (req, res) => {
   try {

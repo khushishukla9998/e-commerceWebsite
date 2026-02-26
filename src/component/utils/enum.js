@@ -59,4 +59,15 @@ module.exports = {
     GOLD: 2,
     PLATINUM: 3,
   },
+
+  PRIORITY:{
+    LOW:0,
+    MEDIUM:1,
+    HIGH:2
+  },
+  WITHDREA_STATUS:{
+    PENDING:0,
+    APPROVED:1,
+    REJECTED:2
+  }
 };

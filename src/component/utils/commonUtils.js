@@ -317,13 +317,7 @@ async function getMembershipBenefits(userId, orderAmount) {
 
    console.log(activeMembership);
    console.log("current date", new Date());
-
-    // // Accessing the plan details in a loop:
-    // activeMembership.forEach(membership => {
-    //   console.log('User ID:', membership.userId);
-    //   console.log('Plan Name:', membership.planId.name); 
-    //   console.log('Plan Price:', membership.planId.price); 
-    // });
+   
   const benefits = {
     discount: 0,
     freeDelivery: false,
@@ -393,15 +387,31 @@ async function applyRewardPoints(userId, points, orderId, description) {
   });
 
   // Track usage in membership
-  await UserMembership.findOneAndUpdate(
-    { userId, status: ENUM.MEMBERSHIP_STATUS.ACTIVE },
-    { $inc: { orderUsedAfterMembership: 1 } }
-  );
+//   await UserMembership.findOneAndUpdate(
+//     { userId, status: ENUM.MEMBERSHIP_STATUS.ACTIVE },
+//     { $inc: { orderUsedAfterMembership: 1 } }
+//   );
 
-  // Update user reward points field
-  await User.findByIdAndUpdate(userId, { $inc: { rewardPoints: points } });
+//   // Update user reward points field
+//   await User.findByIdAndUpdate(userId, { $inc: { rewardPoints: points } });
+// }
+
+const membership = await UserMembership.findOne({
+    userId,
+    status: ENUM.MEMBERSHIP_STATUS.ACTIVE
+});
+if (membership) {
+    membership.orderUsedAfterMembership += 1;
+    await membership.save();
 }
 
+
+const user = await User.findById(userId);
+if (user) {
+    user.rewardPoints += points;
+    await user.save();
+}
+}
 module.exports = {
   routeArray,
   sendSuccessResponse,

@@ -181,4 +181,5 @@ module.exports = {
   FIRST_FREE: "First order is free!",
   MEMBERSHIP_COMPULSORY: "Membership is compulsory from the second order onwards.",
   ALREADY_ACTIVE:  "You already have an active membership.",
+  SUBSCRIPTION_NOT_FOUND:"SUBSCRIPTION ID IS NOT FOUND"
 };

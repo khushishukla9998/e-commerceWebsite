@@ -52,7 +52,21 @@ const membership = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
-  
+  minwithdrawPoints: {
+    type: Number
+  },
+  processingFee: {
+    type: Number
+  },
+  maxWithdrawLimit: {
+    type: Number
+  },
+  isfreeWithdraw: {
+    type: Boolean,
+    default: false
+  },
+
+
 }, { timestamps: true });
 
 module.exports = mongoose.model("MembershipPlan", membership);

@@ -52,7 +52,7 @@ const purchaseMembership = async (req, res) => {
       return commonUtils.sendErrorResponse(
         req,
         res,
-      appString.ALREADY_ACTIVE
+        appString.ALREADY_ACTIVE
       );
     }
 
@@ -109,125 +109,94 @@ const cancelSubscription = async (req, res) => {
       return commonUtils.sendErrorResponse(
         req,
         res,
-      appString.NO_ACTIVE
+        appString.NO_ACTIVE
       );
     }
+    const subscription = await stripe.subscriptions.retrieve(membership.stripeSubscriptionId)
+    if (!subscription) {
+      return commonUtils.sendErrorResponse(req, res, appString.SUBSCRIPTION_NOT_FOUND, null)
+    }
+
+    // if (membership.chargeId) {
+    //   try {
+    //     // const refund = await stripe.refunds.create({
+    //     //   charge: membership.chargeId,
+    //     //   reason: 'requested_by_customer',
+    //     // });
+    //     console.log("Stripe refund successful:", refund.id);
+    //   } catch (refundError) {
+
+    //     console.error("Stripe refund failed:", refundError.message);
+
+    //   }
+    // }
+
+    const deletedSubscription = await stripe.subscriptions.cancel(
+      membership.stripeSubscriptionId, {
+      invoice_now: true,
+      prorate: true,
+    }
+    );
+
+ const currentPeriodEnd = subscription.current_period_end * 1000; // to ms
+    const now = Date.now();
+    const daysRemaining = Math.max(0, Math.ceil((currentPeriodEnd - now) / (1000 * 60 * 60 * 24)));
 
 
-    if (membership.chargeId) {
-      try {
-        const refund = await stripe.refunds.create({
-          charge: membership.chargeId,
-          reason: 'requested_by_customer',
-        });
-        console.log("Stripe refund successful:", refund.id);
-      } catch (refundError) {
-      
-        console.error("Stripe refund failed:", refundError.message);
-    
+   const invoice = await stripe.invoices.retrieve(subscription.latest_invoice);
+    const totalPaid = invoice.amount_paid; 
+   const totalDays = 30; 
+
+   const refundAmount = Math.floor((totalPaid / totalDays) * daysRemaining);
+
+
+    //let refundAmount = 0;
+    if (deletedSubscription.latest_invoice) {
+      const invoice = await stripe.invoices.retrieve(deletedSubscription.latest_invoice)
+      // refundAmount= invoice.amount_remaining?invoice.amount_remaining/100:0;
+      if (invoice.total < 0) {
+        refundAmount = Math.abs(invoice.total)
       }
     }
 
-    const deletedSubscription = await stripe.subscriptions.cancel(
-      membership.stripeSubscriptionId,
-    );
+
+
+    
+    if (refundAmount > 0 && membership.chargeId) {
+      await stripe.refunds.create({
+        charge: membership.chargeId,
+        amount: refundAmount,
+      reason: 'requested_by_customer',
+      })
+    }
     console.log("Stripe subscription cancelled:", deletedSubscription.id);
+    console.log("refundAmount:", refundAmount);
 
 
 
-    membership.status = ENUM.MEMBERSHIP_STATUS.CANCELLED;
-    membership.paymentStatus = ENUM.PAYMENT_STATUS.REFUNDED;
+    // membership.status = ENUM.MEMBERSHIP_STATUS.CANCELLED;
+    // membership.paymentStatus = ENUM.PAYMENT_STATUS.REFUNDED;
+    membership.refundAmount= refundAmount/100
     await membership.save();
 
     return commonUtils.sendSuccessResponse(
       req,
       res,
-    appString.SUCESS_SUBS_CANCEL,
-      { planId: membership.planId },
+      appString.SUCESS_SUBS_CANCEL,
+      { planId: membership.planId , refundAmount:membership.refundAmount},
     );
   } catch (err) {
     console.error("Cancel Subscription Error:", err);
     return commonUtils.sendErrorResponse(req, res, err.message);
   }
 
-
-
-
-
-
-
-
-
-
-
-  
 };
 
 
-
-// const cancelSubscriptionWithProration = async (req, res) => {
-//   try {
-//     const userId = req?.user?.id;
-//     const membership = await UserMembership.findOne({
-//       userId,
-//       status: ENUM.MEMBERSHIP_STATUS.ACTIVE,
-//       stripeSubscriptionId: { $exists: true },
-//     });
-
-//     if (!membership || !membership.stripeSubscriptionId) {
-//       return commonUtils.sendErrorResponse(req, res, appString.NO_ACTIVE);
-//     }
-
-   
-//     const subscription = await stripe.subscriptions.retrieve(membership.stripeSubscriptionId);
- 
-//     const currentPeriodEnd = subscription.current_period_end * 1000; // to ms
-//     const now = Date.now();
-//     const daysRemaining = Math.max(0, Math.ceil((currentPeriodEnd - now) / (1000 * 60 * 60 * 24)));
-    
-
-//     const invoice = await stripe.invoices.retrieve(subscription.latest_invoice);
-//     const totalPaid = invoice.amount_paid; 
-//     const totalDays = 30; 
-    
-//     const refundAmount = Math.floor((totalPaid / totalDays) * daysRemaining);
-
-   
-//     if (membership.chargeId && refundAmount > 0) {
-//       try {
-//         const refund = await stripe.refunds.create({
-//           charge: membership.chargeId,
-//           amount: refundAmount, 
-//           reason: 'requested_by_customer',
-//         });
-//         console.log("Stripe prorated refund successful:", refund.id);
-//       } catch (refundError) {
-//         console.error("Stripe refund failed:", refundError.message);
-//       }
-//     }
-
-//     const deletedSubscription = await stripe.subscriptions.cancel(membership.stripeSubscriptionId);
-//     console.log("Stripe subscription cancelled:", deletedSubscription.id);
-
-//     membership.status = ENUM.MEMBERSHIP_STATUS.CANCELLED;
-//     membership.paymentStatus = ENUM.PAYMENT_STATUS.REFUNDED;
-//     await membership.save();
-
-//     return commonUtils.sendSuccessResponse(req, res, appString.SUCESS_SUBS_CANCEL, { 
-//       planId: membership.planId,
-//       refundedAmount: refundAmount / 100 
-//     });
-
-//   } catch (err) {
-//     console.error("Cancel Subscription Error:", err);
-//     return commonUtils.sendErrorResponse(req, res, err.message);
-//   }
-// };
 
 
 module.exports = {
   listPlans,
   purchaseMembership,
   cancelSubscription,
-
 };

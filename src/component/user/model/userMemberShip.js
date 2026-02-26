@@ -60,6 +60,10 @@ const userMemberShip = new mongoose.Schema(
       type:String,
      //efault:null
     },
+    refundAmount:{
+      type:Number
+    },
+
   },
   { timestamps: true },
 );

@@ -80,6 +80,7 @@ const updateMmeberShip = async (req, res) => {
     if (!plan)
       return commonUtils.sendErrorResponse(req, res, appString.PLAN_NOT_EXIST);
 
+     let {minwithdrawPoints,processingFee,maxWithdrawLimit} = req.body;
     if (!req.body.price == plan.price) {
       const prices = await stripe.prices.create({
         unit_amount: req.body.price * 100,
@@ -90,9 +91,21 @@ const updateMmeberShip = async (req, res) => {
 
       req.body.stripePriceId = prices.id;
     }
-    const update = await MemberShip.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
+
+        const updateData = {};
+        if (minwithdrawPoints !== undefined) updateData.minwithdrawPoints = minwithdrawPoints;
+        if (processingFee !== undefined) updateData.processingFee = processingFee;
+          if (maxWithdrawLimit !== undefined) updateData.maxWithdrawLimit = maxWithdrawLimit;
+
+    
+        const update = await MemberShip.findByIdAndUpdate(req.params.id, req.body,updateData, {
+          new: true,
+        });
+
+        
+    // const update = await MemberShip.findByIdAndUpdate(req.params.id, req.body, {
+    //   new: true,
+    // });
     return commonUtils.sendSuccessResponse(req, res, appString.PR_UPDATE_SUCCESS, update);
   } catch (err) {
     return commonUtils.sendErrorResponse(req, res, err.message, null);

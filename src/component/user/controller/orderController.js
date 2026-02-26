@@ -9,6 +9,7 @@ const appString = require("../../utils/appString");
 const commonUtils = require("../../utils/commonUtils");
 const Razorpay = require("razorpay");
 const Crypto = require("crypto");
+const User = require("../model/userModel")
 const paymentSetting = require("../../admin/model/settingModel");
 const razoprpay = new Razorpay({
   key_id: config.RAZORPAY_KEY_ID,
@@ -75,7 +76,7 @@ const placeOrder = async (req, res) => {
     // Get Cart
     const cart = await Cart.findOne({ userId }).populate(
       "items.productId",
-      "productName price images quantity",
+      "productName price images quantity ",
     );
     if (!cart || !cart.items || cart.items.length === 0) {
       return commonUtils.sendErrorResponse(
@@ -151,7 +152,7 @@ const placeOrder = async (req, res) => {
     );
 
     let finalDiscount = discount + memBenefits.discount;
-    let finalPayableAmount = Math.max( 0, payableAmountBeforeMembership - memBenefits.discount);
+    let finalPayableAmount = Math.max(0, payableAmountBeforeMembership - memBenefits.discount);
 
     // Check delivery fee
     let deliveryFee = memBenefits.freeDelivery ? 0 : 50; // default delivery fee 50 if not free
@@ -172,6 +173,7 @@ const placeOrder = async (req, res) => {
       appliedPromos: appliedPromos.map((p) => p.id),
       rewardPointsEarned: memBenefits.rewardPoints, // Need to add this field to Order model if we want to track
     });
+
 
     // Record usage now that order is created
     await commonUtils.recordPromoUsage(
@@ -197,6 +199,7 @@ const placeOrder = async (req, res) => {
 
         paymentResponse = paymentIntent;
         newOrder.stripePaymentIntentId = paymentIntent.id;
+
 
         // update to CONFIRMED after payment confirmation or webhook.
       } catch (stripeErr) {
