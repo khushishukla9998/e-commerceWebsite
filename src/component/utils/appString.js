@@ -181,5 +181,16 @@ module.exports = {
   FIRST_FREE: "First order is free!",
   MEMBERSHIP_COMPULSORY: "Membership is compulsory from the second order onwards.",
   ALREADY_ACTIVE:  "You already have an active membership.",
-  SUBSCRIPTION_NOT_FOUND:"SUBSCRIPTION ID IS NOT FOUND"
+  SUBSCRIPTION_NOT_FOUND:"SUBSCRIPTION ID IS NOT FOUND",
+
+  //===========withdraw=============//
+
+  POINTS_REQUIRED:"minimu 500 points are required",
+  MEMBERSHIP:"active membership is required",
+  MEMB_EXPIRE:" Youre membership is expired",
+  LESS_POINTS:" insufficient points in your rewards ",
+  
+MAX_WITHDRWA:" only 2 withdrwa allowed per  month : max 2 withdrwa is completed ",
+SILVER_AM_LIMIT :"Maximum withdraw limit per month: ₹5,000 ",
+SUCRESS_WITHDRAW:"Withdraw request is successfull"
 };

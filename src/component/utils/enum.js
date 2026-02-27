@@ -55,9 +55,9 @@ module.exports = {
     REDEEMED: 2,
   },
   MEMBERSHIP_PLAN_NAME: {
-    SILVER: 1,
-    GOLD: 2,
-    PLATINUM: 3,
+    SILVER: "SILVER",
+    GOLD: "GOLD",
+    PLATINUM: "PLATINUM",
   },
 
   PRIORITY:{
@@ -65,7 +65,7 @@ module.exports = {
     MEDIUM:1,
     HIGH:2
   },
-  WITHDREA_STATUS:{
+ WITHDRAW_STATUS:{
     PENDING:0,
     APPROVED:1,
     REJECTED:2

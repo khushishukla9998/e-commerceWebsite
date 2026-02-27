@@ -3,7 +3,7 @@ const ENUM = require("../../utils/enum");
 
 const membership = new mongoose.Schema({
   name: {
-    type: Number,
+    type: String,
     enum: Object.values(ENUM.MEMBERSHIP_PLAN_NAME),
     required: true,
   },
@@ -62,9 +62,9 @@ const membership = new mongoose.Schema({
     type: Number
   },
   isfreeWithdraw: {
-    type: Boolean,
-    default: false
-  },
+    type: Number,
+    },
+    
 
 
 }, { timestamps: true });

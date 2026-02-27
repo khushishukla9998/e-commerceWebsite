@@ -412,6 +412,28 @@ if (user) {
     await user.save();
 }
 }
+
+const cron = require("node-cron");
+const Withdraw = require("../user/model/withdrwaModel");
+const Wallet = require("../user/model/walletModel");
+
+cron.schedule("*/1 * * * *", async () => {
+  console.log("Withdraw cron running...");
+
+  const pending = await Withdraw.find({
+    status: ENUM.WITHDRAW_STATUS.PENDING,
+  }).sort({ priority: -1, createdAt: 1 });
+
+  for (let req of pending) {
+    await Wallet.findOneAndUpdate(
+      { userId: req.userId },
+      { $inc: { balance: req.finelAmount } }
+    );
+
+    req.status = ENUM.WITHDRAW_STATUS.APPROVED;
+    await req.save();
+  }
+});
 module.exports = {
   routeArray,
   sendSuccessResponse,

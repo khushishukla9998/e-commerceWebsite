@@ -7,6 +7,7 @@ const cartController = require("./controller/cartController");
 const orderController = require("./controller/orderController");
 const productController = require("../admin/controller/productController");
 const membershipController = require("./controller/membershipController");
+const withdraw = require("../user/controller/withdrawController")
 
 module.exports = [
   //*******************=============USER REGISTRATION===============*************************
@@ -224,4 +225,12 @@ module.exports = [
     method: "post",
     controller: membershipController.cancelSubscription,
   },
+
+  //=========withdrawal==============
+ {
+    path: "/withdrawal",
+    method: "post",
+    controller: withdraw.withdrwaRequest,
+  },
+
 ];

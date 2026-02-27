@@ -80,7 +80,7 @@ const updateMmeberShip = async (req, res) => {
     if (!plan)
       return commonUtils.sendErrorResponse(req, res, appString.PLAN_NOT_EXIST);
 
-     let {minwithdrawPoints,processingFee,maxWithdrawLimit} = req.body;
+     let {minwithdrawPoints,processingFee,maxWithdrawLimit,isfreeWithdraw} = req.body;
     if (!req.body.price == plan.price) {
       const prices = await stripe.prices.create({
         unit_amount: req.body.price * 100,
@@ -96,7 +96,7 @@ const updateMmeberShip = async (req, res) => {
         if (minwithdrawPoints !== undefined) updateData.minwithdrawPoints = minwithdrawPoints;
         if (processingFee !== undefined) updateData.processingFee = processingFee;
           if (maxWithdrawLimit !== undefined) updateData.maxWithdrawLimit = maxWithdrawLimit;
-
+        if (isfreeWithdraw !== undefined) updateData.isfreeWithdraw = isfreeWithdraw;
     
         const update = await MemberShip.findByIdAndUpdate(req.params.id, req.body,updateData, {
           new: true,
