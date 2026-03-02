@@ -23,11 +23,12 @@ const { verifySocket } = require("../e-commerceWebsite/src/middleware/index")
 
 const http = require('http');
 const path = require("path");
-const { Server } = require('socket.io');
+const { initSocket, sendNotificationToUser } = require("./src/component/utils/socketController");
 
 const app = express();
 const port = 3001;
 const server = http.createServer(app);// Create an HTTP server instance
+initSocket(server);
 
 
 // razorapay webhook===================
@@ -89,6 +90,12 @@ app.post(
             if (order.rewardPointsEarned > 0) {
               await commonUtils.applyRewardPoints(order.userId, order.rewardPointsEarned, order._id, `Earned from order ${order._id}`);
             }
+
+            // Notification for payment success
+            sendNotificationToUser(order.userId, {
+              type: "PAYMENT_SUCCESS",
+              message: "Payment completed successfully for your order."
+            });
           }
           break;
         }
@@ -283,6 +290,12 @@ app.post(
             if (order.rewardPointsEarned > 0) {
               await commonUtils.applyRewardPoints(order.userId, order.rewardPointsEarned, order._id, `Earned from order ${order._id}`);
             }
+
+            // Notification for payment success
+            sendNotificationToUser(order.userId, {
+              type: "PAYMENT_SUCCESS",
+              message: "Payment completed successfully for your order."
+            });
           }
           break;
         }
@@ -382,12 +395,6 @@ app.post(
   },
 );
 
-const io = new Server(server, {
-  cors: {
-    origin: "http://localhost:3001",
-    credentials: true,
-  },
-});
 app.use(cookieParser());
 app.use(
   cors({
@@ -422,46 +429,7 @@ const connectDb = async () => {
   }
 };
 
-io.use(verifySocket);
-const userSockets = new Map();
-io.on('connection', async (socket) => {
-
-  console.log('a user connected and verified');
-
-  const userId = socket.userId;
-  userSockets.set(userId, socket.id);
-  try {
-    const user = await User.findById(userId);
-    console.log(userId)
-
-    if (user) {
-      socket.user = user;
-      console.log(`User ${user.email} connected with socket ID: ${socket.id}`);
-      socket.emit('user:connected', { status: 'success', user: user.toJSON() });
-    } else {
-      console.log('User not found in DB, disconnecting socket');
-      socket.disconnect();
-    }
-  } catch (err) {
-    console.error('Error retrieving user from DB:', err.message);
-    socket.disconnect();
-  }
-
-
-  socket.on('disconnect', () => {
-    if (socket.user) {
-      console.log(`User ${socket.user.email} disconnected`);
-    } else {
-      console.log('A user disconnected');
-    }
-  });
-});
-
-
-const sendNotificationToUser = (userId, data) => {
-  const socketId = userSockets.get(userId);
-  if (socketId && io) io.to(socketId).emit("notification", data);
-};
+// Removed redundant socket logic (now in socketController.js)
 
 
 async function startServer() {
@@ -479,7 +447,7 @@ connectDb();
 
 
 
-module.exports = { sendNotificationToUser };
+module.exports = {};
 
 
 

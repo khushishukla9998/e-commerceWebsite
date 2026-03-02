@@ -11,7 +11,7 @@ const Razorpay = require("razorpay");
 const Crypto = require("crypto");
 const User = require("../model/userModel")
 const paymentSetting = require("../../admin/model/settingModel");
-const { sendNotificationToUser } = require("../../../../../e-commerceWebsite/index")
+const { sendNotificationToUser } = require("../../utils/socketController")
 const razoprpay = new Razorpay({
   key_id: config.RAZORPAY_KEY_ID,
   key_secret: config.RAZORPAY_SECRETE_KEY,
@@ -197,10 +197,6 @@ const placeOrder = async (req, res) => {
             allow_redirects: "never",
           },
         });
-    sendNotificationToUser(userId, {
-          type: "payment_success",
-          message: "payment placed suceessfully"
-        })
         paymentResponse = paymentIntent;
         newOrder.stripePaymentIntentId = paymentIntent.id;
 
@@ -209,14 +205,6 @@ const placeOrder = async (req, res) => {
       } catch (stripeErr) {
         newOrder.status = ENUM.ORDER_STATUS.FAILED;
         newOrder.paymentStatus = ENUM.PAYMENT_STATUS.FAILED;
-        await newOrder.save();
-
-
-        sendNotificationToUser(userId, {
-          type: "order_sucess",
-          message: "order placed suceessfully"
-        })
-
         return commonUtils.sendErrorResponse(req, res, stripeErr.message, null);
       }
     }
@@ -236,11 +224,6 @@ const placeOrder = async (req, res) => {
       } catch (err) {
         newOrder.status = ENUM.ORDER_STATUS.FAILED;
         newOrder.paymentStatus = ENUM.PAYMENT_STATUS.FAILED;
-        await newOrder.save();
-        sendNotificationToUser(userId, {
-          type: "order_sucess",
-          message: "order placed suceessfully"
-        })
         return commonUtils.sendErrorResponse(req, res, err.message, null);
       }
     }
@@ -252,7 +235,14 @@ const placeOrder = async (req, res) => {
     }
     await newOrder.save();
 
-  
+    // Trigger order placement notification
+    console.log(`Triggering notification for user: ${userId}`);
+    sendNotificationToUser(userId, {
+      type: "ORDER_PLACED",
+      message: "Order placed successfully!"
+    });
+
+
     // If COD, we can apply reward points immediately (or wait for delivery)
     if (paymentMethod === ENUM.PAYMENT_METHOD.COD) {
       await commonUtils.applyRewardPoints(
@@ -269,7 +259,7 @@ const placeOrder = async (req, res) => {
       await commonUtils.applyRewardPoints(userId, memBenefits.rewardPoints, newOrder._id, `Earned from Order ${newOrder._id}`);
     }
 
- 
+
     return commonUtils.sendSuccessResponse(
       req,
       res,

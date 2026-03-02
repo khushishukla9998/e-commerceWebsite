@@ -179,9 +179,11 @@ const register = async function (req, res) {
     commonUtils.storeRefreshTokenInCookie(res, "refreshToken", refreshToken);
 
     // store tokens in Redis
-    await redisClient.set(`user:access:${user._id}`, accessToken, { EX: 600 });
+    await redisClient.set(`user:access:${user._id}`, accessToken, {
+      EX: config.REDIS_ACCESS_TOKEN_EXPIRE,
+    });
     await redisClient.set(`user:refresh:${user._id}`, refreshToken, {
-      EX: 604800,
+      EX: config.REDIS_REFRESH_TOKEN_EXPIRE,
     });
 
     // send success response
@@ -319,10 +321,12 @@ const login = async function (req, res) {
     // await redisClient.set(accessToken, user._id.toString(), { EX: 600 });
     // await redisClient.set(refreshToken, user._id.toString(), { EX: 604800 });
 
-    await redisClient.set(`user:access:${user._id}`, accessToken, { EX: 600 });
+    await redisClient.set(`user:access:${user._id}`, accessToken, {
+      EX: config.REDIS_ACCESS_TOKEN_EXPIRE,
+    });
 
     await redisClient.set(`user:refresh:${user._id}`, refreshToken, {
-      EX: 604800,
+      EX: config.REDIS_REFRESH_TOKEN_EXPIRE,
     });
 
     // ==============send the response===========================
@@ -644,7 +648,7 @@ const refreshAccessToken = async (req, res) => {
     commonUtils.storeAcessTokenInCookie(res, "accessToken", newAccessToken);
 
     await redisClient.set(`user:access:${decoded.id}`, newAccessToken, {
-      EX: 600,
+      EX: config.REDIS_ACCESS_TOKEN_EXPIRE,
     });
 
     commonUtils.storeAcessTokenInCookie(res, "accessToken", newAccessToken);

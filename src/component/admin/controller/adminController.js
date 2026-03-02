@@ -11,6 +11,7 @@ const MembershipPlan = require("../model/memberShipPlanModel");
 const redisClient = require("../../utils/redisClient");
 const Setting = require("../model/settingModel");
 const appString = require("../../utils/appString");
+const config = require("../../../../config/dev.json");
 // const secre=BwnKFf_Um4ss_3r;
 // const testapi =rzp_test_SFWXjfHgxXnfwR,
 // const test_key_secret = 3N39KtlCf11RBbHiDOb8knUl;
@@ -71,7 +72,9 @@ const registerAdmin = async function (req, res) {
     commonUtils.storeRefreshTokenInCookie(res, "refreshToken", refreshToken);
 
     // Store Admin Token in Redis
-    await redisClient.set(`user:access:${admin._id}`, accessToken, { EX: 600 });
+    await redisClient.set(`user:access:${admin._id}`, accessToken, {
+      EX: config.REDIS_ACCESS_TOKEN_EXPIRE,
+    });
 
     return commonUtils.sendSuccessResponse(
       req,
@@ -134,7 +137,9 @@ const adminLogin = async function (req, res) {
     commonUtils.storeRefreshTokenInCookie(res, "refreshToken", refreshToken);
 
     // Store Admin Token in Redis
-    await redisClient.set(`user:access:${admin._id}`, accessToken, { EX: 600 });
+    await redisClient.set(`user:access:${admin._id}`, accessToken, {
+      EX: config.REDIS_ACCESS_TOKEN_EXPIRE,
+    });
 
     return commonUtils.sendSuccessResponse(req, res, appStrings.LOGIN_SUCCESS, {
       admin: {
