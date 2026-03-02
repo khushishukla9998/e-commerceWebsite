@@ -4,7 +4,6 @@ const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const bodyparser = require("body-parser");
 
-const path = require("path");
 const userIndex = require("./src/component/user/index");
 const adminIndex = require("./src/component/admin/index");
 // const passwordIndex = require("./src/component/forgot password/index")
@@ -20,9 +19,16 @@ const Product = require("./src/component/admin/model/productModel");
 const UserMembership = require("./src/component/user/model/userMemberShip");
 const MembershipPlan = require("./src/component/admin/model/memberShipPlanModel");
 const User = require("./src/component/user/model/userModel");
+const { verifySocket } = require("../e-commerceWebsite/src/middleware/index")
+
+const http = require('http');
+const path = require("path");
+const { Server } = require('socket.io');
 
 const app = express();
 const port = 3001;
+const server = http.createServer(app);// Create an HTTP server instance
+
 
 // razorapay webhook===================
 
@@ -157,7 +163,7 @@ app.post(
               membership.endDate = endDate;
               membership.paymentStatus = ENUM.PAYMENT_STATUS.SUCCESS;
               membership.status = ENUM.MEMBERSHIP_STATUS.ACTIVE;
-            
+
               await membership.save();
               console.log(
                 `Membership activated for user ${membership.userId} via webhook using session ID.`,
@@ -221,26 +227,26 @@ app.post(
             stripePaymentIntentId: paymentIntent.id,
           });
           console.log("order found:", order ? order._id : null);
-    const invoice = event.data.object;
- 
-    const chargeId = paymentIntent.latest_charge; 
+          const invoice = event.data.object;
 
-    if (!chargeId && invoice.payment_intent) {
-        const paymentIntent = await stripe.paymentIntents.retrieve(invoice.payment_intent);
-        chargeId = paymentIntent.latest_charge;
-    }
-    
+          const chargeId = paymentIntent.latest_charge;
 
-    if (chargeId) {
-      
-        const membership = await UserMembership.findOne({ stripeSubscriptionId: invoice.subscription });
+          if (!chargeId && invoice.payment_intent) {
+            const paymentIntent = await stripe.paymentIntents.retrieve(invoice.payment_intent);
+            chargeId = paymentIntent.latest_charge;
+          }
 
-        if (membership) {
-            membership.chargeId = chargeId;
-            await membership.save();
-            console.log(`Charge ID ${chargeId} saved for membership ${membership.id}`);
-        }
-    }
+
+          if (chargeId) {
+
+            const membership = await UserMembership.findOne({ stripeSubscriptionId: invoice.subscription });
+
+            if (membership) {
+              membership.chargeId = chargeId;
+              await membership.save();
+              console.log(`Charge ID ${chargeId} saved for membership ${membership.id}`);
+            }
+          }
           if (
             order &&
             (order.paymentStatus !== ENUM.PAYMENT_STATUS.SUCCESS ||
@@ -376,7 +382,12 @@ app.post(
   },
 );
 
-
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:3001",
+    credentials: true,
+  },
+});
 app.use(cookieParser());
 app.use(
   cors({
@@ -411,11 +422,51 @@ const connectDb = async () => {
   }
 };
 
-// port declartion
+io.use(verifySocket);
+const userSockets = new Map();
+io.on('connection', async (socket) => {
+
+  console.log('a user connected and verified');
+
+  const userId = socket.userId;
+  userSockets.set(userId, socket.id);
+  try {
+    const user = await User.findById(userId);
+    console.log(userId)
+
+    if (user) {
+      socket.user = user;
+      console.log(`User ${user.email} connected with socket ID: ${socket.id}`);
+      socket.emit('user:connected', { status: 'success', user: user.toJSON() });
+    } else {
+      console.log('User not found in DB, disconnecting socket');
+      socket.disconnect();
+    }
+  } catch (err) {
+    console.error('Error retrieving user from DB:', err.message);
+    socket.disconnect();
+  }
+
+
+  socket.on('disconnect', () => {
+    if (socket.user) {
+      console.log(`User ${socket.user.email} disconnected`);
+    } else {
+      console.log('A user disconnected');
+    }
+  });
+});
+
+
+const sendNotificationToUser = (userId, data) => {
+  const socketId = userSockets.get(userId);
+  if (socketId && io) io.to(socketId).emit("notification", data);
+};
+
 
 async function startServer() {
   try {
-    app.listen(port, () => {
+    server.listen(port, () => {
       console.log(appStrings.SERVER_RUNNING + ` ${port}`);
     });
   } catch (err) {
@@ -425,3 +476,63 @@ async function startServer() {
 
 startServer();
 connectDb();
+
+
+
+module.exports = { sendNotificationToUser };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// const { Server } = require("socket.io");
+// const verifySocketToken = require("./middleware/verifySocketToken");
+
+// let io;
+// const userSockets = new Map();
+
+// const initSocket = (server) => {
+//   io = new Server(server, { cors: { origin: "*" } });
+
+//   io.use(verifySocketToken);
+
+//   io.on("connection", (socket) => {
+//     const userId = socket.userId;
+
+//     userSockets.set(userId, socket.id);
+
+//     console.log("User connected:", userId);
+
+//     socket.on("disconnect", () => {
+//       userSockets.delete(userId);
+//       console.log("User disconnected:", userId);
+//     });
+//   });
+// };
+
+// const sendNotificationToUser = (userId, data) => {
+//   const socketId = userSockets.get(userId);
+//   if (socketId && io) io.to(socketId).emit("notification", data);
+// };
+
+// module.exports = { initSocket, sendNotificationToUser };

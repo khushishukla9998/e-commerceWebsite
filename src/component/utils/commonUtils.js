@@ -355,7 +355,7 @@ async function getMembershipBenefits(userId, orderAmount) {
     benefits.rewardPoints = plan.firstOrderRewardPoints;
   } else {
     // slab based
-    const slabs = plan.rewardSlab; // { "200": 10, "500": 15 ... }
+    const slabs = plan.rewardSlab; 
     if (slabs) {
       const sortedSlabs = Object.keys(slabs)
         .map(Number)
@@ -426,7 +426,6 @@ cron.schedule("*/10 * * * *", async () => {
     }).sort({ Priority: -1, createdAt: 1 }); // High priority first, then oldest first
 
     for (let req of pendingRequests) {
-      // Find existing wallet or create new one
       let wallet = await Wallet.findOne({ userId: req.userId });
       if (!wallet) {
         wallet = new Wallet({ userId: req.userId, balance: 0 });
