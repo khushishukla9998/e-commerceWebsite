@@ -80,7 +80,7 @@ const updateMmeberShip = async (req, res) => {
     if (!plan)
       return commonUtils.sendErrorResponse(req, res, appString.PLAN_NOT_EXIST);
 
-     let {minwithdrawPoints,processingFee,maxWithdrawLimit,isfreeWithdraw} = req.body;
+    let { minwithdrawPoints, processingFee, maxWithdrawLimit, isfreeWithdraw } = req.body;
     if (!req.body.price == plan.price) {
       const prices = await stripe.prices.create({
         unit_amount: req.body.price * 100,
@@ -92,17 +92,17 @@ const updateMmeberShip = async (req, res) => {
       req.body.stripePriceId = prices.id;
     }
 
-        const updateData = {};
-        if (minwithdrawPoints !== undefined) updateData.minwithdrawPoints = minwithdrawPoints;
-        if (processingFee !== undefined) updateData.processingFee = processingFee;
-          if (maxWithdrawLimit !== undefined) updateData.maxWithdrawLimit = maxWithdrawLimit;
-        if (isfreeWithdraw !== undefined) updateData.isfreeWithdraw = isfreeWithdraw;
-    
-        const update = await MemberShip.findByIdAndUpdate(req.params.id, req.body,updateData, {
-          new: true,
-        });
+    const updateData = {};
+    if (minwithdrawPoints !== undefined) updateData.minwithdrawPoints = minwithdrawPoints;
+    if (processingFee !== undefined) updateData.processingFee = processingFee;
+    if (maxWithdrawLimit !== undefined) updateData.maxWithdrawLimit = maxWithdrawLimit;
+    if (isfreeWithdraw !== undefined) updateData.isfreeWithdraw = isfreeWithdraw;
 
-        
+    const update = await MemberShip.findByIdAndUpdate(req.params.id, req.body, updateData, {
+      new: true,
+    });
+
+
     // const update = await MemberShip.findByIdAndUpdate(req.params.id, req.body, {
     //   new: true,
     // });
@@ -120,7 +120,7 @@ const togglePlanStatus = async (req, res) => {
     plan.isActive = !plan.isActive;
     await plan.save();
 
-    return commonUtils.sendSuccessResponse(req, res, `Plan ${plan.isActive ? 'enabled' : 'disabled'} successfully`, plan);
+    return commonUtils.sendSuccessResponse(req, res, plan.isActive ? appString.PLAN_ENABLED : appString.PLAN_DISABLED, plan);
   } catch (err) {
     return commonUtils.sendErrorResponse(req, res, err.message);
   }

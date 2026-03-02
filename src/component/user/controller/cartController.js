@@ -15,7 +15,7 @@ const addToCart = async (req, res) => {
         }
 
         if (!Array.isArray(products) || products.length === 0) {
-            return commonUtils.sendErrorResponse(req, res, "Invalid or empty products array", null, 400);
+            return commonUtils.sendErrorResponse(req, res, appString.INVALID_CART_ITEMS, null, 400);
         }
 
         let cart = await Cart.findOne({ userId });
@@ -73,7 +73,7 @@ const addToCart = async (req, res) => {
 
         await cart.save();
 
-        return commonUtils.sendSuccessResponse(req, res, anyItemAlreadyInCart ? appString.ALREADY_IN_CART : "Products added to cart", cart);
+        return commonUtils.sendSuccessResponse(req, res, anyItemAlreadyInCart ? appString.ALREADY_IN_CART : appString.ADDED_SUCCESS, cart);
     } catch (err) {
         return commonUtils.sendErrorResponse(req, res, err.message, null, 500);
     }
@@ -130,13 +130,13 @@ const updateCartItem = async (req, res) => {
         const { productId, quantity } = req.body;
 
         if (!productId || typeof quantity !== 'number') {
-            return commonUtils.sendErrorResponse(req, res, "Product ID and quantity are required", null, 400);
+            return commonUtils.sendErrorResponse(req, res, appString.PROD_QTY_REQUIRED, null, 400);
         }
 
         let cart = await Cart.findOne({ userId });
 
         if (!cart) {
-            return commonUtils.sendErrorResponse(req, res, "Cart not found", null, 404);
+            return commonUtils.sendErrorResponse(req, res, appString.CART_NOT_FOUND, null, 404);
         }
 
         const itemIndex = cart.items.findIndex(
@@ -168,9 +168,9 @@ const updateCartItem = async (req, res) => {
 
             await cart.save();
 
-            return commonUtils.sendSuccessResponse(req, res, "Cart updated successfully", cart);
+            return commonUtils.sendSuccessResponse(req, res, appString.CART_UPDATED, cart);
         } else {
-            return commonUtils.sendErrorResponse(req, res, "Item not found in cart", null, 404);
+            return commonUtils.sendErrorResponse(req, res, appString.ITEM_NOT_IN_CART, null, 404);
         }
     } catch (err) {
         return commonUtils.sendErrorResponse(req, res, err.message, null, 500);
@@ -186,7 +186,7 @@ const removeCartItem = async (req, res) => {
         let cart = await Cart.findOne({ userId });
 
         if (!cart) {
-            return commonUtils.sendErrorResponse(req, res, "Cart not found", null, 404);
+            return commonUtils.sendErrorResponse(req, res, appString.CART_NOT_FOUND, null, 404);
         }
 
         const itemIndex = cart.items.findIndex(
@@ -197,9 +197,9 @@ const removeCartItem = async (req, res) => {
             cart.items.splice(itemIndex, 1);
             cart.totalPrice = cart.items.reduce((total, item) => total + item.subTotal, 0);
             await cart.save();
-            return commonUtils.sendSuccessResponse(req, res, "Item removed from cart", cart);
+            return commonUtils.sendSuccessResponse(req, res, appString.ITEM_REMOVED, cart);
         } else {
-            return commonUtils.sendErrorResponse(req, res, "Item not found in cart", null, 404);
+            return commonUtils.sendErrorResponse(req, res, appString.ITEM_NOT_IN_CART, null, 404);
         }
     } catch (err) {
         return commonUtils.sendErrorResponse(req, res, err.message, null, 500);

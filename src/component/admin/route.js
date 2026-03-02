@@ -4,6 +4,7 @@ const categoryController = require("./controller/categoryController");
 const productController = require("./controller/productController");
 const PromoController = require("../admin/controller/promoController")
 const MemberController = require("../admin/controller/menberShipPlanController")
+const WithdrawController = require("../user/controller/withdrawController")
 
 module.exports = [
   //   {
@@ -175,5 +176,10 @@ module.exports = [
     path: "/getSubscribedUsers",
     method: "get",
     controller: adminController.getSubscribedUsers,
+  },
+  {
+    path: "/rejectWithdraw",
+    method: "post",
+    controller: WithdrawController.rejectWithdraw,
   },
 ];

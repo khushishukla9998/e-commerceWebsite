@@ -11,47 +11,51 @@ const withdrawSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "UserMembership"
         },
-        planName:{
-            type:String,
+        planId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "MembershipPlan"
+        },
+        planName: {
+            type: String,
         },
 
         pointsUsed: {
-            type: Number
-        },
-
-        remainingPoints: {
-            type: Number
+            type: Number,
+            required: true
         },
 
         amount: {
-            type: Number
+            type: Number,
+            required: true
         },
         processingFeeAmount: {
-            type: Number
+            type: Number,
+            default: 0
         },
         finelAmount: {
-            type: Number
+            type: Number,
+            required: true
         },
         Priority: {
             type: Number,
-            enum: [
-                ENUM.PRIORITY.LOW,
-                ENUM.PRIORITY.MEDIUM,
-                ENUM.PRIORITY.HIGH,
-            ]
+            enum: Object.values(ENUM.PRIORITY),
+            default: ENUM.PRIORITY.LOW
         },
-         requestMonth:{
-            type:Date
+        status: {
+            type: Number,
+            enum: Object.values(ENUM.WITHDRAW_STATUS),
+            default: ENUM.WITHDRAW_STATUS.PENDING
         },
-        requestYear:{
-            type:Date
+        requestMonth: {
+            type: Number
         },
-        
-        // isFeeFree:{
-        //     type: Boolean,
-        //     default: false
-        // }
-        
+        requestYear: {
+            type: Number
+        },
+        processedAt: {
+            type: Date
+        }
+
     },
 
     { timestamps: true },

@@ -20,7 +20,7 @@ const stripe = require("stripe")(config.STRIPE_SECRET_KEY);
 
 function normalizeIndianMobile(mobileNo) {
   if (!mobileNo) {
-    throw new Error("Mobile number is required");
+    throw new Error(appStrings.MOBILE_NUMBER_REQUIRED);
   }
 
   let str = mobileNo.toString().trim();
@@ -40,7 +40,7 @@ function normalizeIndianMobile(mobileNo) {
 
   if (str.length !== 10) {
     throw new Error(
-      "Invalid Indian mobile number format. Please provide a 10-digit number.",
+      appStrings.INVALID_MOBILE_FORMAT,
     );
   }
 
@@ -165,7 +165,7 @@ const register = async function (req, res) {
         return commonUtils.sendErrorResponse(
           req,
           res,
-          "Failed to send OTP, please verify your phone number or contact support.",
+          appStrings.OTP_FAILED_CONTACT,
         );
       }
     }
@@ -243,7 +243,7 @@ const login = async function (req, res) {
       return commonUtils.sendErrorResponse(
         req,
         res,
-        "Email or Mobile number is required",
+        appStrings.EMAIL_MOBILE_REQUIRED,
       );
     }
 
@@ -284,7 +284,7 @@ const login = async function (req, res) {
       return commonUtils.sendErrorResponse(
         req,
         res,
-        "First verify your email",
+        appStrings.VERIFY_EMAIL_FIRST,
         null,
       );
     }
@@ -293,7 +293,7 @@ const login = async function (req, res) {
       return commonUtils.sendErrorResponse(
         req,
         res,
-        "First verify your mobile number ",
+        appStrings.VERIFY_MOBILE_FIRST,
         null,
       );
     }
@@ -686,7 +686,7 @@ const verifyEmailOtp = async (req, res) => {
 
     // 1. Basic input validation
     if (!email || !otp) {
-      return commonUtils.sendErrorResponse(req, res, "email and OTP required");
+      return commonUtils.sendErrorResponse(req, res, appStrings.EMAIL_OTP_REQUIRED);
     }
 
     // 2. Look up user
@@ -711,7 +711,7 @@ const verifyEmailOtp = async (req, res) => {
     user.emailOtpExpire = null;
     await user.save();
 
-    return commonUtils.sendSuccessResponse(req, res, "email is verified");
+    return commonUtils.sendSuccessResponse(req, res, appStrings.EMAIL_VERIFIED);
   } catch (err) {
     return commonUtils.sendErrorResponse(req, res, err.message);
   }
@@ -728,7 +728,7 @@ const verifyMbileOtp = async (req, res) => {
       return commonUtils.sendErrorResponse(
         req,
         res,
-        "mobile no. and OTP required",
+        appStrings.MOBILE_OTP_REQUIRED,
       );
     }
 
@@ -754,7 +754,7 @@ const verifyMbileOtp = async (req, res) => {
     user.otpExpire = null;
     await user.save();
 
-    return commonUtils.sendSuccessResponse(req, res, "mobile no.  is verified");
+    return commonUtils.sendSuccessResponse(req, res, appStrings.MOBILE_VERIFIED);
   } catch (err) {
     return commonUtils.sendErrorResponse(req, res, err.message, null);
   }
@@ -767,7 +767,7 @@ const resendEmailOtp = async (req, res) => {
     const { email } = req.body;
 
     if (!email) {
-      return commonUtils.sendErrorResponse(req, res, "email is required", null);
+      return commonUtils.sendErrorResponse(req, res, appStrings.EMAIL_REQUIRED, null);
     }
 
     const user = await User.findOne({ email });
@@ -796,7 +796,7 @@ const resendEmailOtp = async (req, res) => {
       return commonUtils.sendErrorResponse(
         req,
         res,
-        "please wait before requesting new otp",
+        appStrings.WAIT_FOR_OTP,
         null,
       );
     }
@@ -812,7 +812,7 @@ const resendEmailOtp = async (req, res) => {
     await user.save();
     await sendVerificationEmail(email, otp);
 
-    return commonUtils.sendSuccessResponse(req, res, "new otp is sent", user);
+    return commonUtils.sendSuccessResponse(req, res, appStrings.OTP_RESENT_SUCCESS, user);
   } catch (err) {
     return commonUtils.sendErrorResponse(req, res, err.message, null);
   }
@@ -825,7 +825,7 @@ const resendMobileOtp = async (req, res) => {
     const { mobileNo } = req.body;
 
     if (!mobileNo) {
-      return commonUtils.sendErrorResponse(req, res, "email is required", null);
+      return commonUtils.sendErrorResponse(req, res, appStrings.MOBILE_NUMBER_REQUIRED, null);
     }
 
     const user = await User.findOne({ mobileNo });
@@ -851,7 +851,7 @@ const resendMobileOtp = async (req, res) => {
       return commonUtils.sendErrorResponse(
         req,
         res,
-        "please wait before rquesting new otp ",
+        appStrings.WAIT_FOR_OTP_MOBILE,
         null,
       );
     }
@@ -865,7 +865,7 @@ const resendMobileOtp = async (req, res) => {
     await user.save();
     await sendOtp(mobileNo, otp);
 
-    return commonUtils.sendSuccessResponse(req, res, " new otp  is send", user);
+    return commonUtils.sendSuccessResponse(req, res, appStrings.OTP_RESENT_MOBILE, user);
   } catch (err) {
     return commonUtils.sendErrorResponse(req, res, err.message, null);
   }
@@ -882,7 +882,7 @@ const updateProfile = async (req, res) => {
       return commonUtils.sendErrorResponse(
         req,
         res,
-        "User ID not found in headers",
+        appStrings.USER_ID_HEADER_MISSING,
         null,
       );
     }
@@ -893,7 +893,7 @@ const updateProfile = async (req, res) => {
       return commonUtils.sendErrorResponse(
         req,
         res,
-        "User not found",
+        appStrings.USER_NOT_FOUND,
         null,
         404,
       );
@@ -922,7 +922,7 @@ const updateProfile = async (req, res) => {
         return commonUtils.sendErrorResponse(
           req,
           res,
-          "Existing email cannot be changed as it is used for login. You can only add missing fields.",
+          appStrings.EMAIL_CHANGE_RESTRICTION,
         );
       }
 
@@ -955,7 +955,7 @@ const updateProfile = async (req, res) => {
         return commonUtils.sendErrorResponse(
           req,
           res,
-          "Existing mobile number cannot be changed as it is used for login. You can only add missing fields.",
+          appStrings.MOBILE_CHANGE_RESTRICTION,
         );
       }
 
@@ -984,7 +984,7 @@ const updateProfile = async (req, res) => {
     return commonUtils.sendSuccessResponse(
       req,
       res,
-      "Profile updated successfully",
+      appStrings.PROFILE_UPDATE_SUCCESS,
       updatedUser,
     );
   } catch (err) {
@@ -992,7 +992,7 @@ const updateProfile = async (req, res) => {
     return commonUtils.sendErrorResponse(
       req,
       res,
-      "Internal Server Error",
+      appStrings.SERVER_ERROR,
       null,
     );
   }
@@ -1009,7 +1009,7 @@ const getRewardHistory = async (req, res) => {
 
     const totalResults = await RewardHistory.countDocuments({ userId });
     const history = await RewardHistory.find({ userId })
-      .populate("userId", "name"," email")
+      .populate("userId", "name", " email")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -1017,7 +1017,7 @@ const getRewardHistory = async (req, res) => {
     return commonUtils.sendSuccessResponse(
       req,
       res,
-  appStrings.FETCH_REWARD,
+      appStrings.FETCH_REWARD,
       {
         pagination: {
           totalResults,

@@ -305,19 +305,19 @@ async function checkMembershipRequirement(userId) {
 // Calculates discounts, free delivery, and reward points based on membership.
 
 async function getMembershipBenefits(userId, orderAmount) {
-  console.log("BENIFITS FUNCTION IS CALLED ")  
+  console.log("BENIFITS FUNCTION IS CALLED ")
   console.log("userid", userId)
-  console.log("type",typeof userId)
-  
+  console.log("type", typeof userId)
+
   const activeMembership = await UserMembership.findOne({
     userId: new mongoose.Types.ObjectId(userId),
     status: ENUM.MEMBERSHIP_STATUS.ACTIVE,
     endDate: { $gt: new Date() },
   }).populate("planId");
 
-   console.log(activeMembership);
-   console.log("current date", new Date());
-   
+  console.log(activeMembership);
+  console.log("current date", new Date());
+
   const benefits = {
     discount: 0,
     freeDelivery: false,
@@ -331,7 +331,7 @@ async function getMembershipBenefits(userId, orderAmount) {
 
   const plan = activeMembership.planId;
   benefits.planName = plan.name;
-  console.log("plan",plan)
+  console.log("plan", plan)
 
   // 1. Discount Calculation
   if (orderAmount > plan.discountMinOrderAmount) {
@@ -387,51 +387,62 @@ async function applyRewardPoints(userId, points, orderId, description) {
   });
 
   // Track usage in membership
-//   await UserMembership.findOneAndUpdate(
-//     { userId, status: ENUM.MEMBERSHIP_STATUS.ACTIVE },
-//     { $inc: { orderUsedAfterMembership: 1 } }
-//   );
+  //   await UserMembership.findOneAndUpdate(
+  //     { userId, status: ENUM.MEMBERSHIP_STATUS.ACTIVE },
+  //     { $inc: { orderUsedAfterMembership: 1 } }
+  //   );
 
-//   // Update user reward points field
-//   await User.findByIdAndUpdate(userId, { $inc: { rewardPoints: points } });
-// }
+  //   // Update user reward points field
+  //   await User.findByIdAndUpdate(userId, { $inc: { rewardPoints: points } });
+  // }
 
-const membership = await UserMembership.findOne({
+  const membership = await UserMembership.findOne({
     userId,
     status: ENUM.MEMBERSHIP_STATUS.ACTIVE
-});
-if (membership) {
+  });
+  if (membership) {
     membership.orderUsedAfterMembership += 1;
     await membership.save();
-}
+  }
 
 
-const user = await User.findById(userId);
-if (user) {
+  const user = await User.findById(userId);
+  if (user) {
     user.rewardPoints += points;
     await user.save();
-}
+  }
 }
 
 const cron = require("node-cron");
 const Withdraw = require("../user/model/withdrwaModel");
 const Wallet = require("../user/model/walletModel");
 
-cron.schedule("*/1 * * * *", async () => {
-  console.log("Withdraw cron running...");
+cron.schedule("*/10 * * * *", async () => {
+  console.log("Withdraw cron running every 10 minutes...");
 
-  const pending = await Withdraw.find({
-    status: ENUM.WITHDRAW_STATUS.PENDING,
-  }).sort({ priority: -1, createdAt: 1 });
+  try {
+    const pendingRequests = await Withdraw.find({
+      status: ENUM.WITHDRAW_STATUS.PENDING,
+    }).sort({ Priority: -1, createdAt: 1 }); // High priority first, then oldest first
 
-  for (let req of pending) {
-    await Wallet.findOneAndUpdate(
-      { userId: req.userId },
-      { $inc: { balance: req.finelAmount } }
-    );
+    for (let req of pendingRequests) {
+      // Find existing wallet or create new one
+      let wallet = await Wallet.findOne({ userId: req.userId });
+      if (!wallet) {
+        wallet = new Wallet({ userId: req.userId, balance: 0 });
+      }
 
-    req.status = ENUM.WITHDRAW_STATUS.APPROVED;
-    await req.save();
+      wallet.balance += req.finelAmount;
+      await wallet.save();
+
+      req.status = ENUM.WITHDRAW_STATUS.APPROVED;
+      req.processedAt = new Date();
+      await req.save();
+
+      console.log(`Withdraw request ${req._id} approved for user ${req.userId}. Amount: ${req.finelAmount}`);
+    }
+  } catch (error) {
+    console.error("Error in withdraw cron:", error);
   }
 });
 module.exports = {
