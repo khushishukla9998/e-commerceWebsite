@@ -69,5 +69,10 @@ module.exports = {
     PENDING:0,
     APPROVED:1,
     REJECTED:2
+  },
+
+  DEVICE_TYPE:{
+    WEB:0,
+    MOBILE:1
   }
 };

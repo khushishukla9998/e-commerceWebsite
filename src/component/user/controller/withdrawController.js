@@ -42,7 +42,7 @@ const withdrwaRequest = async (req, res) => {
         const month = now.getMonth() + 1;
         const year = now.getFullYear();
 
-        // 4. Maximum 2 withdraw requests allowed per month
+        //  Maximum 2 withdraw requests allowed per month
         const monthlyCount = await Withdraw.countDocuments({
             userId: userId,
             requestMonth: month,

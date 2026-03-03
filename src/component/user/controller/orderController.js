@@ -146,7 +146,7 @@ const placeOrder = async (req, res) => {
     const payableAmount = Math.max(0, totalPrice - discount);
     const payableAmountBeforeMembership = Math.max(0, totalPrice - discount);
 
-    // 3. Membership Benefit Calculation
+    //  Membership Benefit Calculation
     const memBenefits = await commonUtils.getMembershipBenefits(
       userId,
       payableAmountBeforeMembership,
@@ -172,7 +172,7 @@ const placeOrder = async (req, res) => {
       paymentStatus: ENUM.PAYMENT_STATUS.PENDING,
       orderDate: new Date(),
       appliedPromos: appliedPromos.map((p) => p.id),
-      rewardPointsEarned: memBenefits.rewardPoints, // Need to add this field to Order model if we want to track
+      rewardPointsEarned: memBenefits.rewardPoints, 
     });
 
 
@@ -235,7 +235,7 @@ const placeOrder = async (req, res) => {
     }
     await newOrder.save();
 
-    // Trigger order placement notification
+    //  order placement notification via socket system
     console.log(`Triggering notification for user: ${userId}`);
     sendNotificationToUser(userId, {
       type: "ORDER_PLACED",
@@ -254,7 +254,6 @@ const placeOrder = async (req, res) => {
 
     }
 
-    // If COD, we can apply reward points immediately (or wait for delivery)
     if (paymentMethod === ENUM.PAYMENT_METHOD.COD) {
       await commonUtils.applyRewardPoints(userId, memBenefits.rewardPoints, newOrder._id, `Earned from Order ${newOrder._id}`);
     }

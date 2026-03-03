@@ -24,3 +24,4 @@ socket.on("disconnect", () => {
 socket.on("notification", (data) => {
     console.log("notification received", data);
 });
+

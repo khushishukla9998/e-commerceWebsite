@@ -227,5 +227,10 @@ module.exports = {
   PROFILE_UPDATE_SUCCESS: "Profile updated successfully",
   MOBILE_NUMBER_REQUIRED: "mobile no. is required",
   WAIT_FOR_OTP_MOBILE: "please wait before rquesting new otp ",
-  INVALID_MOBILE_FORMAT: "Invalid Indian mobile number format. Please provide a 10-digit number."
+  INVALID_MOBILE_FORMAT: "Invalid Indian mobile number format. Please provide a 10-digit number.",
+
+  //========socket========================
+
+  NOT_PROVIDED:"Authorization header not provided",
+
 };

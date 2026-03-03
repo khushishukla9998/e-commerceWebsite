@@ -27,7 +27,7 @@ const { initSocket, sendNotificationToUser } = require("./src/component/utils/so
 
 const app = express();
 const port = 3001;
-const server = http.createServer(app);// Create an HTTP server instance
+const server = http.createServer(app);
 initSocket(server);
 
 
@@ -429,9 +429,6 @@ const connectDb = async () => {
   }
 };
 
-// Removed redundant socket logic (now in socketController.js)
-
-
 async function startServer() {
   try {
     server.listen(port, () => {
@@ -445,62 +442,4 @@ async function startServer() {
 startServer();
 connectDb();
 
-
-
 module.exports = {};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// const { Server } = require("socket.io");
-// const verifySocketToken = require("./middleware/verifySocketToken");
-
-// let io;
-// const userSockets = new Map();
-
-// const initSocket = (server) => {
-//   io = new Server(server, { cors: { origin: "*" } });
-
-//   io.use(verifySocketToken);
-
-//   io.on("connection", (socket) => {
-//     const userId = socket.userId;
-
-//     userSockets.set(userId, socket.id);
-
-//     console.log("User connected:", userId);
-
-//     socket.on("disconnect", () => {
-//       userSockets.delete(userId);
-//       console.log("User disconnected:", userId);
-//     });
-//   });
-// };
-
-// const sendNotificationToUser = (userId, data) => {
-//   const socketId = userSockets.get(userId);
-//   if (socketId && io) io.to(socketId).emit("notification", data);
-// };
-
-// module.exports = { initSocket, sendNotificationToUser };

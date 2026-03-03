@@ -135,47 +135,63 @@ function verifyRefreshToken(token) {
 // next(new Error ("invalid or excpird token "))
 // }
 // }
-const verifySocket = async(socket, next) => {
-    try {
-       console.log("socket::::::::::::::::")
-        const token = socket.handshake.query.token || socket.handshake.headers.authorization;
-        // const token = socket.handshake.auth?.token;
-  
-        console.log("auth Object", socket.handshake.query)
-        if (!token) {
-            return next(new Error('Token not provided'));
-        }
+// const verifySocket = async (socket, next) => {
+//   try {
+//     console.log("socket::::::::::::::::")
+//     const token = socket.handshake.query.token || socket.handshake.headers.authorization;
+//     // const token = socket.handshake.auth?.token;
 
-       
-        const decode = jwt.verify(token, config.ACCESS_TOKEN_SECRET);
+//     console.log("auth Object", socket.handshake.query)
+//     if (!token) {
+//       return next(new Error('Token not provided'));
+//     }
+//     const decode = jwt.verify(token, config.ACCESS_TOKEN_SECRET);
+//     const redisKey = `user:access:${decode.id}`;
+//     const tokenInRedis = await redisClient.get(redisKey);
 
-       
-        const redisKey = `user:access:${decode.id}`;
-        const tokenInRedis = await redisClient.get(redisKey);
+//     if (!tokenInRedis || tokenInRedis !== token) {
+//       console.log('Error: Invalid or expired token in Redis');
+//       return next(new Error('Invalid or expired token in Redis'));
+//     }
 
-        if (!tokenInRedis || tokenInRedis !== token) {
-          console.log('Error: Invalid or expired token in Redis'); 
-            return next(new Error('Invalid or expired token in Redis'));
-        }
-        
-    
-        socket.userId = decode.id;
-        socket.userType = decode.type;
-        next();
-        
-    } catch (err) {
-        console.error("Socket authentication failed");
-        console.error('Catch Error:', err.message); 
-        next(new Error('Invalid or expired token'));
-    }
-};
 
+//     socket.userId = decode.id;
+//     socket.userType = decode.type;
+//     next();
+
+//   } catch (err) {
+//     console.error("Socket authentication failed");
+//     console.error('Catch Error:', err.message);
+//     next(new Error('Invalid or expired token'));
+//   }
+// };
+
+// const verifySocket = async (socket, next) => {
+//   try {
+
+// //         const authHeader = socket.handshake.headers.userid;
+// //     if (!authHeader) {
+// //       return next(new Error('Authorization header not provided'));
+// //     }
+// //    // const userId =socket.handshake.headers.authorization.userId;
+// //  const userId = authHeader.userid; 
+// //     if (!userId) {
+// //       return next(new Error('UserId not provided'));
+// //     }
+// //     socket.userId = userId;
+// //     console.log(`User ${socket.userId} connected`);
+// //     next();
+
+// //   } catch (err) {
+// //     next(new Error('Authentication failed'));
+// //     console.log(err.message)
+//   }
+// };
 
 module.exports = {
   generateAccessToken,
   generateRefreshToken,
   verifyAcessToken,
   verifyRefreshToken,
- verifySocket 
-
+  // verifySocket
 };
